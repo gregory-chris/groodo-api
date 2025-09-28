@@ -1,0 +1,35 @@
+# Composer dependencies
+/vendor/
+composer.lock
+
+# SQLite databases
+*.sqlite
+*.sqlite3
+*.db
+
+# PHPStorm / VSCode / Cursor config
+.idea/
+.vscode/
+*.code-workspace
+
+# Logs and temp files
+*.log
+*.cache
+*.tmp
+/tmp/
+.cache/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# PHPUnit & coverage
+.phpunit.result.cache
+coverage/
+
+# Node (if you happen to mix frontend assets)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
