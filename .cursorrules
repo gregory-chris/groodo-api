@@ -190,7 +190,34 @@ tests/             # Unit and integration tests
 - Implement rate limiting for sensitive endpoints
 - Log security events for monitoring
 
+## Development Environment
+
+### Available Tools
+- PHP 8.1+ is installed and available via CLI
+- Composer is installed and available for dependency management
+- Use CLI tools freely: `php`, `composer`, `vendor/bin/phpunit`, etc.
+- Terminal commands can be executed for project setup and maintenance
+
+### CLI Command Requirements
+- **Non-Interactive**: All CLI commands must run without requiring user input
+- **Autonomous Operation**: Commands must not get stuck waiting for user interaction
+- **Complete Parameters**: Always provide all required CLI parameters and flags
+- **Examples of proper usage**:
+  - `composer init --no-interaction --name="groodo/api" --type="project"`
+  - `composer require slim/slim --no-interaction`
+  - `php -S localhost:8000 -t public/` (for development server)
+  - `vendor/bin/phpunit --configuration phpunit.xml`
+- **Avoid interactive prompts**: Use flags like `--no-interaction`, `--yes`, `--force` when available
+- **Background processes**: For long-running commands, ensure they can be terminated cleanly
+
 ## Development Workflow
+
+### Development Plan Tracking
+- **CRITICAL**: After implementing each step in the development plan (`plan.md`), update the plan file to mark completed tasks
+- Check off completed checkboxes: `- [x] Completed task description`
+- Update phase completion status at the bottom of the plan
+- This ensures accurate progress tracking and helps identify what's been completed
+- Never skip updating the plan - it's essential for project management
 
 ### Code Review Checklist
 - [ ] Follows PSR-12 coding standards
@@ -202,6 +229,7 @@ tests/             # Unit and integration tests
 - [ ] Updates documentation if needed
 - [ ] Validates all inputs properly
 - [ ] Uses standardized response format
+- [ ] Updates development plan progress tracking
 
 ### Git Commit Standards
 - Use conventional commit format: `type(scope): description`
