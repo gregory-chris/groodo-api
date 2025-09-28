@@ -1,0 +1,340 @@
+# GrooDo API PHP Project Rules
+
+## Project Overview
+This is a RESTful API for GrooDo (a calendar-based todo app) built with PHP, Slim Framework, JWT authentication, and SQLite database. The API must be stateless, secure, and follow strict response formatting.
+
+## Core Principles
+- **Stateless Design**: Use JWT tokens, no server-side sessions
+- **Security First**: Validate all inputs, hash passwords, sanitize data
+- **Consistent Responses**: All responses must follow `{"result":"success/failure", "data/error":"..."}` format
+- **Comprehensive Logging**: Log every request, database operation, and business logic step
+- **UTC Timezone**: All datetime operations must use UTC
+- **Input Validation**: Strict validation rules for all user inputs
+
+## PHP Code Standards
+
+### General PHP Rules
+- Use PHP 8.1+ features when appropriate
+- Follow PSR-12 coding standards strictly
+- Use strict typing: `declare(strict_types=1);` in all files
+- Use meaningful variable and function names
+- Maximum line length: 120 characters
+- Use camelCase for variables and methods, PascalCase for classes
+- Always use full opening tags `<?php`, never short tags
+
+### Class Structure
+- One class per file
+- Namespace all classes following PSR-4 autoloading
+- Use dependency injection instead of global variables
+- Implement interfaces for services and repositories
+- Use abstract classes for shared functionality
+- Constructor property promotion when appropriate
+
+### Error Handling
+- Use typed exceptions for different error types
+- Never suppress errors with `@` operator
+- Always log exceptions with full context
+- Use try-catch blocks appropriately
+- Return proper HTTP status codes (200, 400, 403, 404, 500)
+
+### Database Operations
+- Use prepared statements for all queries
+- Always validate input before database operations
+- Use transactions for multi-step operations
+- Log all SQL queries with parameters (excluding sensitive data)
+- Handle database connection errors gracefully
+- Use proper PDO error modes
+
+## Project-Specific Rules
+
+### Authentication & Security
+- JWT tokens expire in 24 hours, extend on each authenticated request
+- Password validation: minimum 8 characters, letters + numbers required
+- Use PHP's `password_hash()` and `password_verify()` functions
+- Email confirmation tokens expire in 1 hour
+- Validate all JWT tokens and handle expiration properly
+- Implement basic bot detection for auth endpoints
+- CORS: Allow only `*.greq.me` domains
+
+### Response Format
+```php
+// Success response
+return $response->withJson([
+    'result' => 'success',
+    'data' => $data
+], 200);
+
+// Error response
+return $response->withJson([
+    'result' => 'failure',
+    'error' => $errorMessage
+], $statusCode);
+```
+
+### Input Validation Rules
+- Email: Must be valid format using `filter_var(FILTER_VALIDATE_EMAIL)`
+- Password: 8+ chars, must contain letters and numbers
+- Full name: Max 40 chars, only letters, spaces, and dashes allowed
+- Task title: Max 256 characters, required
+- Task description: Max 2048 characters, optional
+- Tasks per day: Maximum 50 tasks per date
+- All dates: ISO 8601 format, stored in UTC
+
+### Logging Requirements
+- Log level: DEBUG for development, INFO for production
+- Log every HTTP request with method, URI, user ID (if authenticated)
+- Log all database operations with query and affected rows
+- Log authentication attempts and results
+- Log email sending attempts and results
+- Log all business logic steps with context
+- Use structured logging with consistent format
+- Example: `"User 123 created task: {title: 'Sample', description: '...', date: '2023-10-15'} - Success"`
+
+### Database Conventions
+- Table names: lowercase with underscores (users, tasks)
+- Column names: snake_case (created_at, user_id, is_email_confirmed)
+- Primary keys: Always `id` as INTEGER PRIMARY KEY AUTOINCREMENT
+- Foreign keys: Always end with `_id` (user_id)
+- Datetime columns: Store as TEXT in ISO 8601 UTC format
+- Boolean columns: Store as INTEGER (0/1)
+- Always include created_at and updated_at columns
+
+### File Organization
+```
+src/
+├── Controllers/     # API endpoint handlers
+├── Models/         # Database models and entities
+├── Services/       # Business logic services
+├── Middleware/     # Custom middleware
+├── Utils/          # Utility classes and helpers
+└── Exceptions/     # Custom exception classes
+
+config/             # Configuration files
+database/           # SQLite database files
+logs/              # Application logs
+public/            # Web server document root
+tests/             # Unit and integration tests
+```
+
+## Code Quality Rules
+
+### Functions and Methods
+- Single Responsibility Principle: One function, one purpose
+- Maximum function length: 50 lines
+- Maximum cyclomatic complexity: 10
+- Use type hints for all parameters and return types
+- Document complex business logic with comments
+- Avoid deep nesting (max 4 levels)
+
+### Variable Naming
+- Use descriptive names: `$userAuthToken` not `$token`
+- Boolean variables: start with `is`, `has`, `can` (`$isEmailConfirmed`)
+- Arrays: use plural nouns (`$tasks`, `$users`)
+- Constants: UPPER_SNAKE_CASE (`MAX_TASKS_PER_DAY`)
+
+### Comments and Documentation
+- Use PHPDoc blocks for all classes, methods, and properties
+- Document complex business logic inline
+- Explain "why" not "what" in comments
+- Keep comments up-to-date with code changes
+- Document API endpoints with request/response examples
+
+### Testing Requirements
+- Write unit tests for all service classes
+- Write integration tests for all API endpoints
+- Test both success and failure scenarios
+- Mock external dependencies (email service, etc.)
+- Achieve minimum 80% code coverage
+- Use descriptive test method names: `testUserCannotCreateMoreThan50TasksPerDay()`
+
+## Performance and Optimization
+
+### Database Performance
+- Use appropriate indexes on frequently queried columns
+- Avoid N+1 query problems
+- Use LIMIT and OFFSET for pagination
+- Monitor and log slow queries
+- Use database transactions appropriately
+
+### Memory Management
+- Unset large variables when no longer needed
+- Use generators for large datasets
+- Avoid loading entire result sets into memory
+- Monitor memory usage in logs
+
+### Caching Strategy
+- No caching implemented initially (as per requirements)
+- Prepare code structure for future caching implementation
+- Use dependency injection to allow easy caching layer addition
+
+## Security Best Practices
+
+### Input Sanitization
+- Validate all inputs before processing
+- Use parameterized queries for database operations
+- Sanitize data for logging (exclude passwords, tokens)
+- Validate file uploads if implemented
+- Check for SQL injection vulnerabilities
+
+### Authentication Security
+- Never log passwords or sensitive tokens
+- Use secure random token generation
+- Implement proper session invalidation
+- Check for authentication bypass vulnerabilities
+- Validate JWT token signatures properly
+
+### Data Protection
+- Hash passwords before storing
+- Use HTTPS in production (document requirement)
+- Validate CORS origins strictly
+- Implement rate limiting for sensitive endpoints
+- Log security events for monitoring
+
+## Development Workflow
+
+### Code Review Checklist
+- [ ] Follows PSR-12 coding standards
+- [ ] Uses proper type hints and return types
+- [ ] Includes comprehensive error handling
+- [ ] Has appropriate logging statements
+- [ ] Follows security best practices
+- [ ] Includes unit tests for new functionality
+- [ ] Updates documentation if needed
+- [ ] Validates all inputs properly
+- [ ] Uses standardized response format
+
+### Git Commit Standards
+- Use conventional commit format: `type(scope): description`
+- Types: feat, fix, docs, style, refactor, test, chore
+- Examples:
+  - `feat(auth): implement JWT token refresh mechanism`
+  - `fix(tasks): resolve task ordering bug when moving between dates`
+  - `docs(api): add endpoint documentation for task management`
+
+### Environment Management
+- Use `.env` files for configuration
+- Never commit sensitive data to version control
+- Document all required environment variables
+- Use different configurations for dev/test/prod
+- Validate required environment variables on startup
+
+## Debugging and Troubleshooting
+
+### Debug Information
+- Log request IDs for tracing
+- Include stack traces in error logs
+- Log execution time for performance monitoring
+- Use structured logging for easy parsing
+- Include user context in all logs
+
+### Error Messages
+- User-facing errors: Generic, non-technical messages
+- Log detailed technical errors for debugging
+- Include error codes for API consumers
+- Provide helpful validation error messages
+- Never expose internal system details to users
+
+## Maintenance and Monitoring
+
+### Log Management
+- Rotate logs daily
+- Keep logs for 30 days minimum
+- Monitor log file sizes
+- Set up log aggregation for production
+- Alert on critical errors
+
+### Performance Monitoring
+- Monitor response times
+- Track database query performance
+- Monitor memory usage
+- Set up health check endpoints
+- Track API usage patterns
+
+## Code Examples
+
+### Controller Method Template
+```php
+<?php
+declare(strict_types=1);
+
+namespace App\Controllers;
+
+use Psr\Http\Message\ResponseInterface as Response;
+use Psr\Http\Message\ServerRequestInterface as Request;
+
+class ExampleController
+{
+    public function handleRequest(Request $request, Response $response): Response
+    {
+        try {
+            // Log request
+            $this->logger->info('Processing request', [
+                'method' => $request->getMethod(),
+                'uri' => $request->getUri()->getPath(),
+                'user_id' => $request->getAttribute('user_id')
+            ]);
+
+            // Validate input
+            $data = $this->validateInput($request);
+            
+            // Process business logic
+            $result = $this->processBusinessLogic($data);
+            
+            // Log success
+            $this->logger->info('Request processed successfully', [
+                'result_count' => count($result)
+            ]);
+            
+            return $response->withJson([
+                'result' => 'success',
+                'data' => $result
+            ], 200);
+            
+        } catch (ValidationException $e) {
+            $this->logger->warning('Validation error', ['error' => $e->getMessage()]);
+            return $response->withJson([
+                'result' => 'failure',
+                'error' => $e->getMessage()
+            ], 400);
+        } catch (\Exception $e) {
+            $this->logger->error('Unexpected error', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return $response->withJson([
+                'result' => 'failure',
+                'error' => 'Internal server error'
+            ], 500);
+        }
+    }
+}
+```
+
+### Model Method Template
+```php
+<?php
+declare(strict_types=1);
+
+namespace App\Models;
+
+class ExampleModel extends BaseModel
+{
+    public function findByUserId(int $userId): array
+    {
+        $this->logger->debug('Querying records by user ID', ['user_id' => $userId]);
+        
+        $stmt = $this->db->prepare('SELECT * FROM table_name WHERE user_id = ? ORDER BY created_at DESC');
+        $stmt->execute([$userId]);
+        $results = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+        
+        $this->logger->debug('Query completed', [
+            'user_id' => $userId,
+            'result_count' => count($results)
+        ]);
+        
+        return $results;
+    }
+}
+```
+
+Remember: This project prioritizes security, logging, and maintainability. Every piece of code should be production-ready, well-tested, and thoroughly logged.
