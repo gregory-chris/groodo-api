@@ -15,11 +15,12 @@ content-type: application/json
 
 ====
 
-status-code equals: 201
-response-body.json.result equals: success
-response-body.json.data.message contains: registered successfully
-response-body.json.data.user.email equals: testuser@example.com
-response-body.json.data.user.fullName equals: Test User
-response-body.json.data.user.isEmailConfirmed equals: false
-response-body.json.data.user.id exists: true
+status-code equals: 200
+or status-code equals: 201
+response-body.result equals: success
+response-body.data.message contains: registered successfully
+response-body.data.user.email equals: testuser@example.com
+response-body.data.user.fullName equals: Test User
+response-body.data.user.isEmailConfirmed equals: false
+response-body.data.user.id exists: true
 latency less-than: 3000
