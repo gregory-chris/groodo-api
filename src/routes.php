@@ -28,14 +28,14 @@ $app->group('/api', function (RouteCollectorProxy $group) {
     
     // User/Authentication routes
     $group->group('/users', function (RouteCollectorProxy $userGroup) {
-        $userGroup->post('/signUp', [UserController::class, 'signUp'])
-                  ->add(SecurityMiddleware::class);
-        $userGroup->post('/signIn', [UserController::class, 'signIn'])
-                  ->add(SecurityMiddleware::class);
-        $userGroup->post('/signOut', [UserController::class, 'signOut'])
+        $userGroup->post('/signup', [UserController::class, 'signUp']);
+                  //->add(SecurityMiddleware::class);
+        $userGroup->post('/signin', [UserController::class, 'signIn']);
+                  //->add(SecurityMiddleware::class);
+        $userGroup->post('/signout', [UserController::class, 'signOut'])
                   ->add(AuthMiddleware::class);
-        $userGroup->post('/confirmEmail', [UserController::class, 'confirmEmail']);
-        $userGroup->post('/resetPassword', [UserController::class, 'resetPassword'])
+        $userGroup->post('/confirm-email', [UserController::class, 'confirmEmail']);
+        $userGroup->post('/reset-password', [UserController::class, 'resetPassword'])
                   ->add(SecurityMiddleware::class);
         $userGroup->get('/profile', [UserController::class, 'getProfile'])
                   ->add(AuthMiddleware::class);

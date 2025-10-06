@@ -1,0 +1,23 @@
+project: User Signup - Duplicate Email
+depends-on: 01-signup-success.greq
+allow-dependency-failure: false
+is-http: true
+
+====
+
+POST /api/users/signup HTTP/1.1
+host: localhost:8000
+content-type: application/json
+
+{
+  "email": "testuser@example.com",
+  "password": "AnotherPass456",
+  "fullName": "Another User"
+}
+
+====
+
+status-code equals: 409
+response-body.json.result equals: failure
+response-body.json.error contains: Email already registered
+latency less-than: 2000

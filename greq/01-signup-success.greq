@@ -1,0 +1,25 @@
+project: User Signup - Success
+is-http: true
+
+====
+
+POST /api/users/signup HTTP/1.1
+host: localhost:8000
+content-type: application/json
+
+{
+  "email": "testuser@example.com",
+  "password": "Password123",
+  "fullName": "Test User"
+}
+
+====
+
+status-code equals: 201
+response-body.json.result equals: success
+response-body.json.data.message contains: registered successfully
+response-body.json.data.user.email equals: testuser@example.com
+response-body.json.data.user.fullName equals: Test User
+response-body.json.data.user.isEmailConfirmed equals: false
+response-body.json.data.user.id exists: true
+latency less-than: 3000

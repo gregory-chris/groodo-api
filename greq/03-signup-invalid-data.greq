@@ -1,0 +1,22 @@
+project: User Signup - Invalid Data (Short Password)
+is-http: true
+
+====
+
+POST /api/users/signup HTTP/1.1
+host: localhost:8000
+content-type: application/json
+
+{
+  "email": "invalid@example.com",
+  "password": "short",
+  "fullName": "Invalid User"
+}
+
+====
+
+status-code equals: 400
+response-body.json.result equals: failure
+response-body.json.error exists: true
+not response-body.json.data exists: true
+latency less-than: 2000
