@@ -154,7 +154,7 @@ run-tests.bat
 - **Test User**: testuser@example.com (email must be confirmed first)
 - **Expected**: HTTP 200, success with JWT token
 - **Dependencies**: `01-signup-success.greq`
-- **Prerequisites**: Run `php confirm-test-user-email.php` first
+- **Auto-Setup**: Uses `execute-before: php confirm-email.php` to automatically confirm email
 - **What it validates**:
   - Successful authentication
   - JWT token is returned
@@ -180,7 +180,7 @@ php clean-test-users-auto.php
 05-signin-invalid-credentials.greq (Independent - wrong password)
 ```
 
-### Full Sign-In Flow (With Email Confirmation)
+### Full Sign-In Flow (Automated with execute-before)
 ```
 Manual Cleanup
     ↓
@@ -190,9 +190,9 @@ php clean-test-users-auto.php
     ↓
 04-signin-success.greq (Attempt signin - expect 403)
     ↓
-php confirm-test-user-email.php (Manually confirm email)
-    ↓
-06-signin-success-confirmed.greq (Successful signin with token)
+06-signin-success-confirmed.greq
+    ├─ execute-before: php confirm-email.php (Auto-confirms email)
+    └─ Successful signin with JWT token
 ```
 
 ## Workflow Examples
@@ -207,6 +207,21 @@ greq *.greq --verbose
 ```
 
 ### Test Complete Authentication Flow
+```bash
+# 1. Clean database
+php clean-test-users-auto.php
+
+# 2. Create user
+greq 01-signup-success.greq --verbose
+
+# 3. Try to sign in (should fail - email not confirmed)
+greq 04-signin-success.greq --verbose
+
+# 4. Sign in successfully (email auto-confirmed via execute-before)
+greq 06-signin-success-confirmed.greq --verbose
+```
+
+### Test Complete Authentication Flow (Legacy - Manual Confirmation)
 ```bash
 # 1. Clean database
 php clean-test-users-auto.php
@@ -333,7 +348,8 @@ tail -f ../public/logs/groodo-api-*.log
 greq/
 ├── clean-test-users.php           # Interactive cleanup (with confirmation)
 ├── clean-test-users-auto.php      # Automated cleanup (no confirmation)
-├── confirm-test-user-email.php    # Manually confirm test user email
+├── confirm-email.php              # Quick email confirmation (for execute-before)
+├── confirm-test-user-email.php    # Manual email confirmation (interactive)
 ├── 01-signup-success.greq         # User registration test
 ├── 02-signup-duplicate-email.greq # Duplicate email test
 ├── 03-signup-invalid-data.greq    # Validation test

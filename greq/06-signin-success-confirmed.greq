@@ -1,6 +1,7 @@
 project: User SignIn - Success (After Email Confirmation)
 depends-on: 01-signup-success.greq
 allow-dependency-failure: false
+execute-before: php confirm-email.php
 is-http: true
 
 ====
