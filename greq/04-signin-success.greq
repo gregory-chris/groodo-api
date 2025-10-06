@@ -1,0 +1,24 @@
+project: User SignIn - Unconfirmed Email (Expected to Fail)
+depends-on: 01-signup-success.greq
+allow-dependency-failure: false
+is-http: true
+
+====
+
+POST /api/users/signin HTTP/1.1
+host: localhost:8000
+content-type: application/json
+
+{
+  "email": "testuser@example.com",
+  "password": "Password123"
+}
+
+====
+
+status-code equals: 403
+response-body.result equals: failure
+response-body.error contains: confirm your email
+not response-body.data exists: true
+not response-body.token exists: true
+latency less-than: 2000

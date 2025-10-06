@@ -1,0 +1,29 @@
+project: User SignIn - Success (After Email Confirmation)
+depends-on: 01-signup-success.greq
+allow-dependency-failure: false
+is-http: true
+
+====
+
+POST /api/users/signin HTTP/1.1
+host: localhost:8000
+content-type: application/json
+
+{
+  "email": "testuser@example.com",
+  "password": "Password123"
+}
+
+====
+
+status-code equals: 200
+response-body.result equals: success
+response-body.data.message contains: Sign-in successful
+response-body.data.token exists: true
+response-body.data.expiresAt exists: true
+response-body.data.expiresIn exists: true
+response-body.data.user.id exists: true
+response-body.data.user.email equals: testuser@example.com
+response-body.data.user.fullName equals: Test User
+response-body.data.user.isEmailConfirmed equals: true
+latency less-than: 2000
