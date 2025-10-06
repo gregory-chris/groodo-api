@@ -100,6 +100,7 @@ run-tests.bat
 - **Test User**: testuser@example.com
 - **Expected**: HTTP 200/201, success response
 - **Dependencies**: None (runs independently)
+- **Auto-Setup**: Uses `execute-before: php clean-test-users-auto.php` to clean database before signup
 - **What it validates**:
   - User creation with valid data
   - Response format matches API standard
@@ -164,11 +165,30 @@ run-tests.bat
 
 ## Test Flow
 
-### Basic Flow (Authentication Required)
+### Fully Automated Flow (Recommended)
+All tests now use `execute-before` for automatic setup:
+
 ```
-Manual Cleanup
-    ↓
-php clean-test-users-auto.php
+01-signup-success.greq
+    ├─ execute-before: php clean-test-users-auto.php (Auto-cleanup)
+    └─ Creates testuser@example.com
+        ↓
+02-signup-duplicate-email.greq (Tests duplicate detection)
+        ↓
+04-signin-success.greq (Attempt signin - expect 403)
+        ↓
+06-signin-success-confirmed.greq
+    ├─ execute-before: php confirm-email.php (Auto-confirms email)
+    └─ Successful signin with JWT token
+
+Independent tests:
+• 03-signup-invalid-data.greq (Validation test)
+• 05-signin-invalid-credentials.greq (Wrong password)
+```
+
+### Legacy Flow (Manual Cleanup)
+```
+php clean-test-users-auto.php (Manual cleanup)
     ↓
 01-signup-success.greq (Create testuser@example.com)
     ↓
@@ -180,26 +200,23 @@ php clean-test-users-auto.php
 05-signin-invalid-credentials.greq (Independent - wrong password)
 ```
 
-### Full Sign-In Flow (Automated with execute-before)
-```
-Manual Cleanup
-    ↓
-php clean-test-users-auto.php
-    ↓
-01-signup-success.greq (Create testuser@example.com)
-    ↓
-04-signin-success.greq (Attempt signin - expect 403)
-    ↓
-06-signin-success-confirmed.greq
-    ├─ execute-before: php confirm-email.php (Auto-confirms email)
-    └─ Successful signin with JWT token
-```
-
 ## Workflow Examples
 
-### Fresh Test Run
+### Fresh Test Run (Fully Automated)
 ```bash
-# Clean database
+# Just run the tests - cleanup is automatic!
+greq 01-signup-success.greq --verbose
+greq 02-signup-duplicate-email.greq --verbose
+greq 04-signin-success.greq --verbose
+greq 06-signin-success-confirmed.greq --verbose
+
+# Or run all tests
+greq *.greq --verbose
+```
+
+### Fresh Test Run (Legacy - Manual Cleanup)
+```bash
+# Clean database first
 php clean-test-users-auto.php
 
 # Run all tests

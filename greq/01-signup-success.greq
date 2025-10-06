@@ -1,4 +1,5 @@
 project: User Signup - Success
+execute-before: php clean-test-users-auto.php
 is-http: true
 
 ====
