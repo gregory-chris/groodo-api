@@ -2,6 +2,11 @@
 /vendor/
 composer.lock
 
+# Environment files
+.env
+.env.local
+.env.*.local
+
 # SQLite databases
 *.sqlite
 *.sqlite3
