@@ -16,7 +16,7 @@ content-type: application/json
 ====
 
 status-code equals: 400
-response-body.json.result equals: failure
-response-body.json.error exists: true
-not response-body.json.data exists: true
+response-body.result equals: failure
+response-body.error exists: true
+not response-body.data exists: true
 latency less-than: 2000

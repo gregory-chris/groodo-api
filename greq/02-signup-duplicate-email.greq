@@ -18,6 +18,6 @@ content-type: application/json
 ====
 
 status-code equals: 409
-response-body.json.result equals: failure
-response-body.json.error contains: Email already registered
+response-body.result equals: failure
+response-body.error contains: Email already registered
 latency less-than: 2000
