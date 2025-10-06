@@ -31,6 +31,9 @@ $errorMiddleware = $app->addErrorMiddleware(
 // Add routing middleware
 $app->addRoutingMiddleware();
 
+// Add case-insensitive route middleware (before routing)
+$app->add(\App\Middleware\CaseInsensitiveRouteMiddleware::class);
+
 // Add body parsing middleware
 $app->addBodyParsingMiddleware();
 

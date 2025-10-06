@@ -40,6 +40,7 @@ return $response->withJson([
 - Sanitize data before logging (never log passwords/tokens)
 - CORS: Only allow `*.greq.me` domains
 - JWT signature validation on every authenticated request
+- Routes are case-insensitive (handled by CaseInsensitiveRouteMiddleware)
 
 ### 4. Comprehensive Logging
 Log EVERYTHING with Monolog:
@@ -93,6 +94,7 @@ class ExampleController
 - **Methods/Functions**: camelCase (`createTask`, `validateEmail`)
 - **Variables**: camelCase (`$userId`, `$taskTitle`)
 - **Constants**: UPPER_SNAKE_CASE (`MAX_TASKS_PER_DAY`)
+- **API Routes**: lowercase with kebab-case (`/api/users/signup`, `/api/users/confirm-email`)
 - **Database tables**: lowercase_snake_case (`users`, `tasks`)
 - **Database columns**: snake_case (`created_at`, `user_id`, `is_email_confirmed`)
 - **Booleans**: Prefix with `is`, `has`, `can` (`$isConfirmed`, `$hasAccess`)
