@@ -163,6 +163,36 @@ run-tests.bat
   - User data is returned
   - Email confirmation status is true
 
+### 07-signout-success.greq
+- **Purpose**: Tests successful sign-out with valid authentication
+- **Test User**: testuser@example.com (uses token from sign-in)
+- **Expected**: HTTP 200, sign-out successful
+- **Dependencies**: `06-signin-success-confirmed.greq`
+- **Token Usage**: Uses `$(dependency.response-body.data.token)` placeholder
+- **What it validates**:
+  - Successful sign-out with valid JWT token
+  - Authentication token is accepted
+  - Auth token is cleared from database
+  - Proper success message returned
+
+### 08-signout-no-auth.greq
+- **Purpose**: Tests sign-out without authentication header
+- **Expected**: HTTP 403, forbidden
+- **Dependencies**: None (independent test)
+- **What it validates**:
+  - Sign-out requires authentication
+  - Missing authorization header is rejected
+  - Proper error response format
+
+### 09-signout-invalid-token.greq
+- **Purpose**: Tests sign-out with invalid JWT token
+- **Expected**: HTTP 403, forbidden
+- **Dependencies**: None (independent test)
+- **What it validates**:
+  - Invalid JWT token is rejected
+  - Token validation works correctly
+  - Proper error response format
+
 ## Test Flow
 
 ### Fully Automated Flow (Recommended)
@@ -180,10 +210,15 @@ All tests now use `execute-before` for automatic setup:
 06-signin-success-confirmed.greq
     ├─ execute-before: php confirm-email.php (Auto-confirms email)
     └─ Successful signin with JWT token
+        ↓
+07-signout-success.greq
+    └─ Uses token from 06 via $(dependency.response-body.data.token)
 
 Independent tests:
 • 03-signup-invalid-data.greq (Validation test)
 • 05-signin-invalid-credentials.greq (Wrong password)
+• 08-signout-no-auth.greq (No auth header)
+• 09-signout-invalid-token.greq (Invalid token)
 ```
 
 ### Legacy Flow (Manual Cleanup)
@@ -225,17 +260,23 @@ greq *.greq --verbose
 
 ### Test Complete Authentication Flow
 ```bash
-# 1. Clean database
-php clean-test-users-auto.php
-
-# 2. Create user
+# Complete authentication cycle (fully automated)
 greq 01-signup-success.greq --verbose
-
-# 3. Try to sign in (should fail - email not confirmed)
-greq 04-signin-success.greq --verbose
-
-# 4. Sign in successfully (email auto-confirmed via execute-before)
 greq 06-signin-success-confirmed.greq --verbose
+greq 07-signout-success.greq --verbose
+
+# Or run them all in one line
+greq 01-signup-success.greq && greq 06-signin-success-confirmed.greq && greq 07-signout-success.greq
+```
+
+### Test Sign-Out Scenarios
+```bash
+# Test successful sign-out
+greq 07-signout-success.greq --verbose
+
+# Test sign-out failures
+greq 08-signout-no-auth.greq --verbose       # No auth header
+greq 09-signout-invalid-token.greq --verbose # Invalid token
 ```
 
 ### Test Complete Authentication Flow (Legacy - Manual Confirmation)
@@ -373,6 +414,9 @@ greq/
 ├── 04-signin-success.greq         # Sign-in with unconfirmed email (403)
 ├── 05-signin-invalid-credentials.greq # Sign-in with wrong password (401)
 ├── 06-signin-success-confirmed.greq   # Sign-in after email confirmation (200)
+├── 07-signout-success.greq        # Sign-out with valid token (200)
+├── 08-signout-no-auth.greq        # Sign-out without auth header (403)
+├── 09-signout-invalid-token.greq  # Sign-out with invalid token (403)
 ├── run-tests.ps1                  # PowerShell test runner
 ├── run-tests.bat                  # Batch test runner
 └── README.md                      # This file

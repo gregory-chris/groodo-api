@@ -13,17 +13,17 @@ declare(strict_types=1);
  *   ./clean-test-users-auto.php (on Unix systems with executable permissions)
  */
 
-require __DIR__ . '/../vendor/autoload.php';
+require __DIR__ . '/../../vendor/autoload.php';
 
 use Dotenv\Dotenv;
 
 try {
     // Load environment variables
-    $dotenv = Dotenv::createImmutable(__DIR__ . '/..');
+    $dotenv = Dotenv::createImmutable(__DIR__ . '/../..');
     $dotenv->load();
 
     // Database configuration
-    $dbPath = __DIR__ . '/../database/groodo-api.sqlite';
+    $dbPath = __DIR__ . '/../../database/groodo-api.sqlite';
 
     if (!file_exists($dbPath)) {
         echo "Error: Database file not found: {$dbPath}\n";

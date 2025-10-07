@@ -1,0 +1,18 @@
+project: User SignOut - Success
+depends-on: 06-signin-success-confirmed.greq
+allow-dependency-failure: false
+is-http: true
+
+====
+
+POST /api/users/signout HTTP/1.1
+host: localhost:8000
+content-type: application/json
+authorization: Bearer $(dependency.response-body.data.token)
+
+====
+
+status-code equals: 200
+response-body.result equals: success
+response-body.data.message contains: Sign-out successful
+latency less-than: 2000

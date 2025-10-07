@@ -5,14 +5,14 @@
  * Confirms email for testuser@example.com (non-interactive, for automated tests)
  */
 
-require __DIR__ . '/../vendor/autoload.php';
+require __DIR__ . '/../../vendor/autoload.php';
 use Dotenv\Dotenv;
 
 try {
-    $dotenv = Dotenv::createImmutable(__DIR__ . '/..');
+    $dotenv = Dotenv::createImmutable(__DIR__ . '/../..');
     $dotenv->load();
     
-    $dbPath = __DIR__ . '/../database/groodo-api.sqlite';
+    $dbPath = __DIR__ . '/../../database/groodo-api.sqlite';
     $pdo = new PDO('sqlite:' . $dbPath);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 

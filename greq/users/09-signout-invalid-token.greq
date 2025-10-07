@@ -1,0 +1,17 @@
+project: User SignOut - Invalid Token (Fail)
+is-http: true
+
+====
+
+POST /api/users/signout HTTP/1.1
+host: localhost:8000
+content-type: application/json
+authorization: Bearer invalid_token_12345
+
+====
+
+status-code equals: 403
+response-body.result equals: failure
+response-body.error exists: true
+not response-body.data exists: true
+latency less-than: 2000
