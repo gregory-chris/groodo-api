@@ -1,0 +1,26 @@
+project: User Get Profile - Success
+depends-on: 06-signin-success-confirmed.greq
+allow-dependency-failure: false
+is-http: true
+
+====
+
+GET /api/users/profile HTTP/1.1
+host: localhost:8000
+authorization: Bearer $(dependency.response-body.data.token)
+
+====
+
+status-code equals: 200
+response-body.result equals: success
+response-body.data.id exists: true
+response-body.data.email equals: testuser@example.com
+response-body.data.fullName equals: Test User
+response-body.data.isEmailConfirmed equals: true
+response-body.data.createdAt exists: true
+response-body.data.updatedAt exists: true
+response-body.data.password exists: false
+response-body.data.password_hash exists: false
+response-body.data.auth_token exists: false
+response-body.data.email_confirmation_token exists: false
+latency less-than: 2000

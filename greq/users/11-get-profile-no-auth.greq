@@ -1,0 +1,15 @@
+project: User Get Profile - No Authentication (Fail)
+is-http: true
+
+====
+
+GET /api/users/profile HTTP/1.1
+host: localhost:8000
+
+====
+
+status-code equals: 403
+response-body.result equals: failure
+response-body.error exists: true
+not response-body.data exists: true
+latency less-than: 2000

@@ -193,6 +193,29 @@ run-tests.bat
   - Token validation works correctly
   - Proper error response format
 
+### 10-get-profile-success.greq
+- **Purpose**: Tests getting user profile with valid authentication
+- **Test User**: testuser@example.com (uses token from sign-in)
+- **Expected**: HTTP 200, profile data returned
+- **Dependencies**: `06-signin-success-confirmed.greq`
+- **Token Usage**: Uses `$(dependency.response-body.data.token)` placeholder
+- **What it validates**:
+  - Profile retrieved successfully with valid JWT
+  - All profile fields are present (id, email, fullName, isEmailConfirmed, createdAt, updatedAt)
+  - Email values match expected user
+  - Email confirmation status is true
+  - **Security**: Sensitive fields NOT returned (password, password_hash, auth_token, email_confirmation_token)
+  - Proper response format
+
+### 11-get-profile-no-auth.greq
+- **Purpose**: Tests getting profile without authentication header
+- **Expected**: HTTP 403, forbidden
+- **Dependencies**: None (independent test)
+- **What it validates**:
+  - Profile access requires authentication
+  - Missing authorization header is rejected
+  - Proper error response format
+
 ## Test Flow
 
 ### Fully Automated Flow (Recommended)
@@ -211,14 +234,18 @@ All tests now use `execute-before` for automatic setup:
     ├─ execute-before: php confirm-email.php (Auto-confirms email)
     └─ Successful signin with JWT token
         ↓
-07-signout-success.greq
-    └─ Uses token from 06 via $(dependency.response-body.data.token)
+    ┌───┴───┐
+    ↓       ↓
+07-signout-success.greq    10-get-profile-success.greq
+    └─ Uses token via      └─ Uses token via
+       $(dependency...)        $(dependency...)
 
 Independent tests:
 • 03-signup-invalid-data.greq (Validation test)
 • 05-signin-invalid-credentials.greq (Wrong password)
 • 08-signout-no-auth.greq (No auth header)
 • 09-signout-invalid-token.greq (Invalid token)
+• 11-get-profile-no-auth.greq (No auth header)
 ```
 
 ### Legacy Flow (Manual Cleanup)
@@ -404,22 +431,25 @@ tail -f ../public/logs/groodo-api-*.log
 
 ```
 greq/
-├── clean-test-users.php           # Interactive cleanup (with confirmation)
-├── clean-test-users-auto.php      # Automated cleanup (no confirmation)
-├── confirm-email.php              # Quick email confirmation (for execute-before)
-├── confirm-test-user-email.php    # Manual email confirmation (interactive)
-├── 01-signup-success.greq         # User registration test
-├── 02-signup-duplicate-email.greq # Duplicate email test
-├── 03-signup-invalid-data.greq    # Validation test
-├── 04-signin-success.greq         # Sign-in with unconfirmed email (403)
-├── 05-signin-invalid-credentials.greq # Sign-in with wrong password (401)
-├── 06-signin-success-confirmed.greq   # Sign-in after email confirmation (200)
-├── 07-signout-success.greq        # Sign-out with valid token (200)
-├── 08-signout-no-auth.greq        # Sign-out without auth header (403)
-├── 09-signout-invalid-token.greq  # Sign-out with invalid token (403)
-├── run-tests.ps1                  # PowerShell test runner
-├── run-tests.bat                  # Batch test runner
-└── README.md                      # This file
+├── users/
+│   ├── clean-test-users-auto.php      # Automated cleanup (no confirmation)
+│   ├── confirm-email.php              # Quick email confirmation (for execute-before)
+│   ├── 01-signup-success.greq         # User registration test
+│   ├── 02-signup-duplicate-email.greq # Duplicate email test
+│   ├── 03-signup-invalid-data.greq    # Validation test
+│   ├── 04-signin-success.greq         # Sign-in with unconfirmed email (403)
+│   ├── 05-signin-invalid-credentials.greq # Sign-in with wrong password (401)
+│   ├── 06-signin-success-confirmed.greq   # Sign-in after email confirmation (200)
+│   ├── 10-get-profile-success.greq    # Get profile with valid token (200)
+│   └── 11-get-profile-no-auth.greq    # Get profile without auth (403)
+├── 07-signout-success.greq            # Sign-out with valid token (200)
+├── 08-signout-no-auth.greq            # Sign-out without auth header (403)
+├── 09-signout-invalid-token.greq      # Sign-out with invalid token (403)
+├── clean-test-users.php               # Interactive cleanup (with confirmation)
+├── confirm-test-user-email.php        # Manual email confirmation (interactive)
+├── run-tests.ps1                      # PowerShell test runner
+├── run-tests.bat                      # Batch test runner
+└── README.md                          # This file
 ```
 
 ## Adding New Tests
