@@ -1,0 +1,23 @@
+extends: task-template.greq
+depends-on: 04-get-task-1.greq
+
+====
+
+PUT /api/task/$(dependency.response-body.data.id) HTTP/1.1
+authorization: Bearer $(environment.GROODO_AUTH_TOKEN)
+
+{
+  "title": "Test Task 1 Updated",
+  "description": "This is the updated first test task",
+  "status": "completed"
+}
+
+====
+
+response-body.result equals: success
+response-body.data.id equals: $(dependency.response-body.data.id)
+response-body.data.title equals: Test Task 1 Updated
+response-body.data.description equals: This is the updated first test task
+response-body.data.completed equals: false
+response-body.data.date equals: 2025-10-15
+response-body.data.updatedAt exists: true

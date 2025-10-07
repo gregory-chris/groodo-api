@@ -1,0 +1,21 @@
+extends: task-template.greq
+depends-on: 08-list-tasks-two.greq
+set-environment.task1_id: $(dependency.response-body.data[0].id)
+set-environment.task2_id: $(dependency.response-body.data[1].id)
+
+====
+
+POST /api/task/$(dependency.response-body.data[1].id)/updateorder HTTP/1.1
+authorization: Bearer $(environment.GROODO_AUTH_TOKEN)
+
+{
+  "date": "2025-10-15"
+}
+
+====
+
+status-code equals: 200
+response-body.result equals: success
+response-body.data.id equals: $(dependency.response-body.data[1].id)
+response-body.data.date equals: 2025-10-15
+response-body.data.order equals: 1

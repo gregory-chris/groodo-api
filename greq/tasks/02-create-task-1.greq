@@ -1,0 +1,28 @@
+extends: task-template.greq
+depends-on: ../users/06-signin-success-confirmed.greq
+set-environment.GROODO_AUTH_TOKEN: $(dependency.response-body.data.token)
+
+====
+
+POST /api/tasks HTTP/1.1
+authorization: Bearer $(dependency.response-body.data.token)
+
+{
+  "title": "Test Task 1",
+  "description": "This is the first test task",
+  "date": "2025-10-15",
+  "status": "pending"
+}
+
+====
+
+status-code equals: 200
+or status-code equals: 201
+response-body.result equals: success
+response-body.data.id exists: true
+response-body.data.title equals: Test Task 1
+response-body.data.description equals: This is the first test task
+response-body.data.date equals: 2025-10-15
+response-body.data.completed equals: false
+response-body.data.createdAt exists: true
+response-body.data.updatedAt exists: true

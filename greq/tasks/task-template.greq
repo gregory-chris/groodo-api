@@ -1,0 +1,12 @@
+project: GrooDo API - Tasks
+is-http: true
+
+====
+
+GET /api/tasks HTTP/1.1
+host: localhost:8000
+content-type: application/json
+
+====
+
+status-code equals: 200

@@ -51,6 +51,6 @@ $app->group('/api', function (RouteCollectorProxy $group) {
         $taskGroup->get('/{taskId:[0-9]+}', [TaskController::class, 'getTask']);
         $taskGroup->put('/{taskId:[0-9]+}', [TaskController::class, 'updateTask']);
         $taskGroup->delete('/{taskId:[0-9]+}', [TaskController::class, 'deleteTask']);
-        $taskGroup->post('/{taskId:[0-9]+}/updateOrder', [TaskController::class, 'updateTaskOrder']);
+    $taskGroup->post('/{taskId:[0-9]+}/updateorder', [TaskController::class, 'updateTaskOrder']);
     })->add(AuthMiddleware::class);
 });

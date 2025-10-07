@@ -1,0 +1,14 @@
+extends: task-template.greq
+depends-on: 09-reorder-task-2.greq
+
+====
+
+DELETE /api/task/$(environment.task1_id) HTTP/1.1
+authorization: Bearer $(environment.GROODO_AUTH_TOKEN)
+
+====
+
+status-code equals: 200
+response-body.result equals: success
+response-body.data.message equals: Task deleted successfully
+response-body.data.deletedTask.id equals: $(environment.task1_id)
