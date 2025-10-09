@@ -97,30 +97,48 @@ class CorsMiddleware implements MiddlewareInterface
 
     private function isOriginAllowed(string $origin): bool
     {
+        $this->logger->debug('CORS origin check: evaluating origin', ['origin' => $origin]);
+
         if (empty($origin)) {
+            $this->logger->warning('CORS origin check: empty Origin header');
             return false;
         }
 
         $parsedOrigin = parse_url($origin);
         if (!$parsedOrigin || !isset($parsedOrigin['host'])) {
+            $this->logger->warning('CORS origin check: failed to parse origin or missing host', ['origin' => $origin]);
             return false;
         }
 
         $originHost = strtolower($parsedOrigin['host']);
+        $this->logger->debug('CORS origin check: parsed origin host', ['origin_host' => $originHost]);
 
-        foreach ($this->config['allowed_origins'] as $allowedOrigin) {
-            $allowedOrigin = trim(strtolower($allowedOrigin));
+        $allowedList = array_map(static function ($o) { return trim(strtolower((string)$o)); }, $this->config['allowed_origins']);
+        $this->logger->debug('CORS origin check: allowed origins list', ['allowed_origins' => $allowedList]);
+
+        foreach ($allowedList as $allowedOrigin) {
+            $this->logger->debug('CORS origin check: testing allowed origin', [
+                'origin_host' => $originHost,
+                'allowed_origin' => $allowedOrigin
+            ]);
+
             if ($this->matchOrigin($originHost, $allowedOrigin)) {
+                $this->logger->debug('CORS origin check: match found', [
+                    'origin_host' => $originHost,
+                    'allowed_origin' => $allowedOrigin
+                ]);
                 return true;
             }
         }
 
+        $this->logger->debug('CORS origin check: no matches found', ['origin_host' => $originHost]);
         return false;
     }
 
     private function matchOrigin(string $originHost, string $allowedOrigin): bool
     {
         if ($allowedOrigin === '') {
+            $this->logger->debug('CORS origin match: empty allowed origin entry');
             return false;
         }
 
@@ -131,16 +149,33 @@ class CorsMiddleware implements MiddlewareInterface
         $allowedHost = preg_replace('/^\*\./', '', ltrim($allowedHost, '.'));
 
         if ($allowedHost === '') {
+            $this->logger->debug('CORS origin match: computed empty allowed host');
             return false;
         }
 
         // Exact host match
         if ($originHost === $allowedHost) {
+            $this->logger->debug('CORS origin match: exact host match', [
+                'origin_host' => $originHost,
+                'allowed_host' => $allowedHost
+            ]);
             return true;
         }
 
         // Subdomain suffix match
-        return str_ends_with($originHost, '.' . $allowedHost);
+        $suffixMatch = str_ends_with($originHost, '.' . $allowedHost);
+        if ($suffixMatch) {
+            $this->logger->debug('CORS origin match: subdomain suffix match', [
+                'origin_host' => $originHost,
+                'allowed_host' => $allowedHost
+            ]);
+        } else {
+            $this->logger->debug('CORS origin match: no match', [
+                'origin_host' => $originHost,
+                'allowed_host' => $allowedHost
+            ]);
+        }
+        return $suffixMatch;
     }
 
     public function getAllowedOrigins(): array
