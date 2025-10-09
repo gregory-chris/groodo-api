@@ -101,8 +101,16 @@ class CorsMiddleware implements MiddlewareInterface
             return false;
         }
 
+        $parsedOrigin = parse_url($origin);
+        if (!$parsedOrigin || !isset($parsedOrigin['host'])) {
+            return false;
+        }
+
+        $originHost = strtolower($parsedOrigin['host']);
+
         foreach ($this->config['allowed_origins'] as $allowedOrigin) {
-            if ($this->matchOrigin($origin, trim($allowedOrigin))) {
+            $allowedOrigin = trim(strtolower($allowedOrigin));
+            if ($this->matchOrigin($originHost, $allowedOrigin)) {
                 return true;
             }
         }
@@ -110,37 +118,29 @@ class CorsMiddleware implements MiddlewareInterface
         return false;
     }
 
-    private function matchOrigin(string $origin, string $allowedOrigin): bool
+    private function matchOrigin(string $originHost, string $allowedOrigin): bool
     {
-        // Exact match
-        if ($origin === $allowedOrigin) {
+        if ($allowedOrigin === '') {
+            return false;
+        }
+
+        // If allowed origin includes a scheme, extract host; otherwise treat as host
+        $allowedHost = parse_url($allowedOrigin, PHP_URL_HOST) ?: $allowedOrigin;
+
+        // Normalize: remove leading dots and wildcard prefix
+        $allowedHost = preg_replace('/^\*\./', '', ltrim($allowedHost, '.'));
+
+        if ($allowedHost === '') {
+            return false;
+        }
+
+        // Exact host match
+        if ($originHost === $allowedHost) {
             return true;
         }
 
-        // Wildcard match for subdomains
-        if (str_starts_with($allowedOrigin, '*.')) {
-            $domain = substr($allowedOrigin, 2);
-            
-            // Parse the origin URL to get the host
-            $parsedOrigin = parse_url($origin);
-            if (!$parsedOrigin || !isset($parsedOrigin['host'])) {
-                return false;
-            }
-            
-            $originHost = $parsedOrigin['host'];
-            
-            // Check if it's an exact match of the domain
-            if ($originHost === $domain) {
-                return true;
-            }
-            
-            // Check if it's a subdomain
-            if (str_ends_with($originHost, '.' . $domain)) {
-                return true;
-            }
-        }
-
-        return false;
+        // Subdomain suffix match
+        return str_ends_with($originHost, '.' . $allowedHost);
     }
 
     public function getAllowedOrigins(): array
