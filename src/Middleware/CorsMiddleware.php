@@ -37,22 +37,22 @@ class CorsMiddleware implements MiddlewareInterface
             'uri' => $request->getUri()->getPath()
         ]);
 
-        // If running on localhost, allow all origins (no CORS headers needed)
+        // If running on localhost, allow all origins (no CORS restrictions)
         $isLocalhost = in_array($host, ['localhost', '127.0.0.1', '::1'], true);
         
         if ($isLocalhost) {
-            $this->logger->debug('Localhost detected, skipping CORS restrictions');
+            $this->logger->debug('Localhost detected, allowing all origins');
             
             // Handle preflight OPTIONS request
             if ($method === 'OPTIONS') {
                 $this->logger->debug('Handling localhost preflight request');
                 $response = new \Slim\Psr7\Response();
-                return $this->addLocalhostHeaders($response);
+                return $this->addLocalhostCorsHeaders($response);
             }
 
             // Process the actual request
             $response = $handler->handle($request);
-            return $this->addLocalhostHeaders($response);
+            return $this->addLocalhostCorsHeaders($response);
         }
 
         // Production environment - enforce CORS restrictions
@@ -73,7 +73,10 @@ class CorsMiddleware implements MiddlewareInterface
 
     private function addCorsHeaders(Response $response, string $origin, string $requestScheme): Response
     {
-        $this->logger->debug('Adding CORS headers', ['origin' => $origin, 'request_scheme' => $requestScheme]);
+        $this->logger->debug('Adding CORS headers', [
+            'origin' => $origin,
+            'request_scheme' => $requestScheme
+        ]);
 
         // Check if origin is allowed (by domain, regardless of protocol)
         if ($this->isOriginAllowed($origin)) {
@@ -81,7 +84,10 @@ class CorsMiddleware implements MiddlewareInterface
             $allowedOrigin = $this->normalizeOriginProtocol($origin, $requestScheme);
             $response = $response->withHeader('Access-Control-Allow-Origin', $allowedOrigin);
             
-            $this->logger->debug('Origin allowed', ['origin' => $origin, 'allowed_origin' => $allowedOrigin]);
+            $this->logger->debug('Origin allowed', [
+                'original_origin' => $origin,
+                'allowed_origin' => $allowedOrigin
+            ]);
         } else {
             $this->logger->warning('Origin not allowed', ['origin' => $origin]);
             // For security, don't set CORS headers for disallowed origins
@@ -120,7 +126,7 @@ class CorsMiddleware implements MiddlewareInterface
         return $response;
     }
 
-    private function addLocalhostHeaders(Response $response): Response
+    private function addLocalhostCorsHeaders(Response $response): Response
     {
         $this->logger->debug('Adding localhost CORS headers (allow all)');
 
@@ -160,26 +166,32 @@ class CorsMiddleware implements MiddlewareInterface
 
     private function isOriginAllowed(string $origin): bool
     {
-        $this->logger->debug('CORS origin check: evaluating origin', ['origin' => $origin]);
-
         if (empty($origin)) {
-            $this->logger->warning('CORS origin check: empty Origin header');
+            $this->logger->debug('Empty origin, not allowed');
             return false;
         }
 
         // Parse the origin to extract domain (ignore protocol)
         $parsedOrigin = parse_url($origin);
         if (!$parsedOrigin || !isset($parsedOrigin['host'])) {
+            $this->logger->debug('Failed to parse origin', ['origin' => $origin]);
             return false;
         }
 
         $originHost = $parsedOrigin['host'];
         $originPort = $parsedOrigin['port'] ?? null;
 
+        $this->logger->debug('Checking origin against allowed list', [
+            'origin_host' => $originHost,
+            'origin_port' => $originPort,
+            'allowed_origins' => $this->config['allowed_origins']
+        ]);
+
         // Check against allowed origins (domain matching only)
         foreach ($this->config['allowed_origins'] as $allowedOrigin) {
             $parsedAllowed = parse_url(trim($allowedOrigin));
             if (!$parsedAllowed || !isset($parsedAllowed['host'])) {
+                $this->logger->debug('Skipping invalid allowed origin', ['allowed_origin' => $allowedOrigin]);
                 continue;
             }
 
@@ -188,11 +200,15 @@ class CorsMiddleware implements MiddlewareInterface
 
             // Match host and port (ignore protocol)
             if ($originHost === $allowedHost && $originPort === $allowedPort) {
+                $this->logger->debug('Origin matched', [
+                    'origin' => $origin,
+                    'matched_allowed_origin' => $allowedOrigin
+                ]);
                 return true;
             }
         }
 
-        $this->logger->debug('CORS origin check: no matches found', ['origin_host' => $originHost]);
+        $this->logger->debug('Origin not in allowed list', ['origin' => $origin]);
         return false;
     }
 
@@ -201,6 +217,9 @@ class CorsMiddleware implements MiddlewareInterface
         // Parse the origin to extract domain
         $parsed = parse_url($origin);
         if (!$parsed || !isset($parsed['host'])) {
+            $this->logger->warning('Failed to normalize origin protocol, returning as-is', [
+                'origin' => $origin
+            ]);
             return $origin; // Return as-is if parsing fails
         }
 
@@ -219,30 +238,5 @@ class CorsMiddleware implements MiddlewareInterface
         ]);
 
         return $normalizedOrigin;
-    }
-
-    public function getAllowedOrigins(): array
-    {
-        return $this->config['allowed_origins'];
-    }
-
-    public function getAllowedMethods(): array
-    {
-        return $this->config['allowed_methods'];
-    }
-
-    public function getAllowedHeaders(): array
-    {
-        return $this->config['allowed_headers'];
-    }
-
-    public function isCredentialsAllowed(): bool
-    {
-        return $this->config['credentials'];
-    }
-
-    public function getMaxAge(): int
-    {
-        return $this->config['max_age'];
     }
 }
