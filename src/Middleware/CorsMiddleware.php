@@ -160,7 +160,10 @@ class CorsMiddleware implements MiddlewareInterface
 
     private function isOriginAllowed(string $origin): bool
     {
+        $this->logger->debug('CORS origin check: evaluating origin', ['origin' => $origin]);
+
         if (empty($origin)) {
+            $this->logger->warning('CORS origin check: empty Origin header');
             return false;
         }
 
@@ -189,6 +192,7 @@ class CorsMiddleware implements MiddlewareInterface
             }
         }
 
+        $this->logger->debug('CORS origin check: no matches found', ['origin_host' => $originHost]);
         return false;
     }
 

@@ -34,7 +34,7 @@ class LoggingService
         $handler = new RotatingFileHandler(
             $config['path'],
             $config['max_files'],
-            $config['level']
+            \Monolog\Level::Debug,// $config['level']
         );
 
         // Set custom formatter
