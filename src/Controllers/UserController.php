@@ -146,8 +146,17 @@ class UserController
                 return $this->responseHelper->error('Email and password are required', 400);
             }
 
-            // Find user by email
-            $user = $this->userModel->findByEmail($email);
+            // Find user by email (wrap in try-catch to handle database errors)
+            try {
+                $user = $this->userModel->findByEmail($email);
+            } catch (\Exception $dbError) {
+                $this->logger->error('Database error while finding user', [
+                    'email' => $email,
+                    'error' => $dbError->getMessage()
+                ]);
+                return $this->responseHelper->internalError('Sign-in failed. Please try again later.');
+            }
+
             if ($user === null) {
                 $this->logger->warning('Sign-in attempt with non-existent email', [
                     'email' => $email
@@ -155,8 +164,29 @@ class UserController
                 return $this->responseHelper->error('Invalid email or password', 401);
             }
 
+            // Verify user has required fields
+            if (!isset($user['password_hash']) || !isset($user['id']) || !isset($user['is_email_confirmed'])) {
+                $this->logger->error('User record is missing required fields', [
+                    'user_id' => $user['id'] ?? 'unknown',
+                    'email' => $email,
+                    'missing_fields' => array_diff(['password_hash', 'id', 'is_email_confirmed'], array_keys($user))
+                ]);
+                return $this->responseHelper->internalError('User data is corrupted. Please contact support.');
+            }
+
             // Verify password
-            if (!$this->passwordService->verifyPassword($password, $user['password_hash'])) {
+            try {
+                $passwordValid = $this->passwordService->verifyPassword($password, $user['password_hash']);
+            } catch (\Exception $verifyError) {
+                $this->logger->error('Error verifying password', [
+                    'user_id' => $user['id'],
+                    'email' => $email,
+                    'error' => $verifyError->getMessage()
+                ]);
+                return $this->responseHelper->internalError('Sign-in failed. Please try again later.');
+            }
+
+            if (!$passwordValid) {
                 $this->logger->warning('Sign-in attempt with invalid password', [
                     'user_id' => $user['id'],
                     'email' => $email
@@ -174,14 +204,30 @@ class UserController
             }
 
             // Generate JWT token
-            $tokenData = $this->jwtService->generateToken($user['id']);
+            try {
+                $tokenData = $this->jwtService->generateToken($user['id']);
+            } catch (\Exception $tokenError) {
+                $this->logger->error('Error generating JWT token', [
+                    'user_id' => $user['id'],
+                    'error' => $tokenError->getMessage()
+                ]);
+                return $this->responseHelper->internalError('Sign-in failed. Please try again later.');
+            }
 
             // Update user's auth token in database
-            $this->userModel->updateAuthToken(
-                $user['id'],
-                $tokenData['token'],
-                $tokenData['expires_at']
-            );
+            try {
+                $this->userModel->updateAuthToken(
+                    $user['id'],
+                    $tokenData['token'],
+                    $tokenData['expires_at']
+                );
+            } catch (\Exception $updateError) {
+                $this->logger->error('Error updating auth token', [
+                    'user_id' => $user['id'],
+                    'error' => $updateError->getMessage()
+                ]);
+                // Continue anyway - token was generated successfully
+            }
 
             $this->logger->info('User signed in successfully', [
                 'user_id' => $user['id'],
@@ -202,11 +248,13 @@ class UserController
             ]);
 
         } catch (\Exception $e) {
-            $this->logger->error('User sign-in failed', [
+            $this->logger->error('User sign-in failed with exception', [
                 'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
                 'trace' => $e->getTraceAsString()
             ]);
-            return $this->responseHelper->internalError('Sign-in failed');
+            return $this->responseHelper->internalError('Sign-in failed. Please try again later.');
         }
     }
 
