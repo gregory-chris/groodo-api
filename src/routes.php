@@ -13,6 +13,12 @@ use Slim\Routing\RouteCollectorProxy;
 $app->add(LoggingMiddleware::class);
 $app->add(CorsMiddleware::class);
 
+// Handle all OPTIONS requests (CORS preflight)
+$app->options('/{routes:.+}', function ($request, $response) {
+    // CORS headers are added by CorsMiddleware
+    return $response;
+});
+
 // Health check endpoint
 $app->get('/health', function ($request, $response) {
     $responseHelper = new \App\Utils\ResponseHelper();
