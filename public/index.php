@@ -48,6 +48,34 @@ require __DIR__ . '/../src/dependencies.php';
 // Configure routes
 require __DIR__ . '/../src/routes.php';
 
+// Helper function to add CORS headers to error responses
+function addCorsHeadersToResponse($response, Request $request) {
+    $host = $request->getUri()->getHost();
+    
+    // Determine the allowed origin based on the request host
+    if (strtolower($host) === 'groodo-api.greq.me') {
+        $allowedOrigin = 'https://groodo.greq.me';
+    } elseif (in_array(strtolower($host), ['localhost', '127.0.0.1', '::1'], true) || 
+              str_starts_with(strtolower($host), 'localhost:')) {
+        $allowedOrigin = '*';
+    } else {
+        $allowedOrigin = '*';
+    }
+    
+    $response = $response
+        ->withHeader('Access-Control-Allow-Origin', $allowedOrigin)
+        ->withHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+        ->withHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+        ->withHeader('Access-Control-Max-Age', '3600');
+    
+    // Only add credentials header if not using wildcard origin
+    if ($allowedOrigin !== '*') {
+        $response = $response->withHeader('Access-Control-Allow-Credentials', 'true');
+    }
+    
+    return $response;
+}
+
 // Custom error handlers for unsupported endpoints/methods
 $errorMiddleware->setErrorHandler(HttpNotFoundException::class, function (
     Request $request,
@@ -57,13 +85,25 @@ $errorMiddleware->setErrorHandler(HttpNotFoundException::class, function (
     bool $logErrorDetails
 ) use ($app) {
     $logger = $app->getContainer()->get(LoggerInterface::class);
-    $logger->info('Unsupported endpoint (route not found)', [
+    $logger->info('Route not found (404)', [
         'method' => $request->getMethod(),
         'uri' => (string)$request->getUri()
     ]);
 
-    $responseHelper = new \App\Utils\ResponseHelper();
-    return $responseHelper->error('Endpoint not supported', 400);
+    $response = new \Slim\Psr7\Response();
+    $response->getBody()->write(json_encode([
+        'result' => 'failure',
+        'error' => 'Endpoint not found'
+    ], JSON_UNESCAPED_UNICODE));
+    
+    $response = $response
+        ->withStatus(404)
+        ->withHeader('Content-Type', 'application/json');
+    
+    // Add CORS headers
+    $response = addCorsHeadersToResponse($response, $request);
+    
+    return $response;
 });
 
 $errorMiddleware->setErrorHandler(HttpMethodNotAllowedException::class, function (
@@ -74,13 +114,43 @@ $errorMiddleware->setErrorHandler(HttpMethodNotAllowedException::class, function
     bool $logErrorDetails
 ) use ($app) {
     $logger = $app->getContainer()->get(LoggerInterface::class);
-    $logger->info('Unsupported endpoint (method not allowed)', [
+    
+    // Cast to HttpMethodNotAllowedException to access getAllowedMethods()
+    $allowedMethods = [];
+    if ($exception instanceof HttpMethodNotAllowedException) {
+        $allowedMethods = $exception->getAllowedMethods();
+    }
+    
+    $logger->info('Method not allowed (405)', [
         'method' => $request->getMethod(),
-        'uri' => (string)$request->getUri()
+        'uri' => (string)$request->getUri(),
+        'allowed_methods' => $allowedMethods
     ]);
 
-    $responseHelper = new \App\Utils\ResponseHelper();
-    return $responseHelper->error('Endpoint not supported', 400);
+    $response = new \Slim\Psr7\Response();
+    $responseData = [
+        'result' => 'failure',
+        'error' => 'Method not allowed'
+    ];
+    
+    if (!empty($allowedMethods)) {
+        $responseData['allowed_methods'] = $allowedMethods;
+    }
+    
+    $response->getBody()->write(json_encode($responseData, JSON_UNESCAPED_UNICODE));
+    
+    $response = $response
+        ->withStatus(405)
+        ->withHeader('Content-Type', 'application/json');
+    
+    if (!empty($allowedMethods)) {
+        $response = $response->withHeader('Allow', implode(', ', $allowedMethods));
+    }
+    
+    // Add CORS headers
+    $response = addCorsHeadersToResponse($response, $request);
+    
+    return $response;
 });
 
 // Run app
