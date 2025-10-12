@@ -98,9 +98,9 @@ class EmailService
 
     private function buildConfirmationUrl(string $token): string
     {
-        // In a real application, this would be the frontend URL
-        $baseUrl = $_ENV['FRONTEND_URL'] ?? 'https://groodo.greq.me';
-        return $baseUrl . '/confirm-email?token=' . urlencode($token);
+        // Point to API endpoint that will handle confirmation and redirect
+        $baseUrl = $_ENV['API_URL'] ?? 'https://groodo-api.greq.me';
+        return $baseUrl . '/api/users/confirm-email?token=' . urlencode($token);
     }
 
     private function buildPasswordResetUrl(string $token): string
@@ -114,38 +114,139 @@ class EmailService
     {
         return "
         <!DOCTYPE html>
-        <html>
+        <html lang='en'>
         <head>
             <meta charset='UTF-8'>
             <meta name='viewport' content='width=device-width, initial-scale=1.0'>
             <title>Confirm Your GrooDo Account</title>
             <style>
-                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
-                .header { background-color: #4CAF50; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }
-                .content { background-color: #f9f9f9; padding: 30px; border-radius: 0 0 5px 5px; }
-                .button { display: inline-block; background-color: #4CAF50; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }
-                .footer { text-align: center; margin-top: 30px; font-size: 12px; color: #666; }
+                * { margin: 0; padding: 0; box-sizing: border-box; }
+                body { 
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+                    line-height: 1.6;
+                    color: #1a202c;
+                    background-color: #f7fafc;
+                    padding: 20px;
+                }
+                .container {
+                    max-width: 600px;
+                    margin: 0 auto;
+                    background-color: #ffffff;
+                    border-radius: 12px;
+                    overflow: hidden;
+                    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+                }
+                .header {
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                    padding: 40px 30px;
+                    text-align: center;
+                }
+                .header h1 {
+                    font-size: 28px;
+                    font-weight: 600;
+                    margin-bottom: 8px;
+                }
+                .header p {
+                    font-size: 16px;
+                    opacity: 0.9;
+                }
+                .content {
+                    padding: 40px 30px;
+                }
+                .greeting {
+                    font-size: 20px;
+                    font-weight: 600;
+                    color: #2d3748;
+                    margin-bottom: 20px;
+                }
+                .message {
+                    font-size: 16px;
+                    color: #4a5568;
+                    margin-bottom: 16px;
+                }
+                .button-container {
+                    text-align: center;
+                    margin: 35px 0;
+                }
+                .button {
+                    display: inline-block;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                    padding: 16px 40px;
+                    text-decoration: none;
+                    border-radius: 8px;
+                    font-size: 16px;
+                    font-weight: 600;
+                    transition: transform 0.2s;
+                }
+                .link-box {
+                    background-color: #f7fafc;
+                    border: 1px solid #e2e8f0;
+                    padding: 16px;
+                    border-radius: 8px;
+                    word-break: break-all;
+                    font-size: 13px;
+                    color: #718096;
+                    margin: 20px 0;
+                }
+                .info-box {
+                    background-color: #fef3c7;
+                    border-left: 4px solid #f59e0b;
+                    padding: 16px;
+                    border-radius: 4px;
+                    margin: 25px 0;
+                }
+                .info-box strong {
+                    color: #92400e;
+                    font-weight: 600;
+                }
+                .footer {
+                    background-color: #f7fafc;
+                    padding: 30px;
+                    text-align: center;
+                    font-size: 13px;
+                    color: #718096;
+                    border-top: 1px solid #e2e8f0;
+                }
+                .footer p {
+                    margin: 8px 0;
+                }
             </style>
         </head>
         <body>
-            <div class='header'>
-                <h1>Welcome to GrooDo!</h1>
-            </div>
-            <div class='content'>
-                <h2>Hello {$fullName},</h2>
-                <p>Thank you for registering with GrooDo, your calendar-based todo app!</p>
-                <p>To complete your registration and start organizing your tasks, please confirm your email address by clicking the button below:</p>
-                <p style='text-align: center;'>
-                    <a href='{$confirmationUrl}' class='button'>Confirm Email Address</a>
-                </p>
-                <p>If the button doesn't work, you can copy and paste this link into your browser:</p>
-                <p style='word-break: break-all; background-color: #eee; padding: 10px; border-radius: 3px;'>{$confirmationUrl}</p>
-                <p><strong>Important:</strong> This confirmation link will expire in 1 hour for security reasons.</p>
-                <p>If you didn't create a GrooDo account, please ignore this email.</p>
-                <p>Best regards,<br>The GrooDo Team</p>
-            </div>
-            <div class='footer'>
-                <p>This email was sent from GrooDo API. Please do not reply to this email.</p>
+            <div class='container'>
+                <div class='header'>
+                    <h1>✓ Welcome to GrooDo</h1>
+                    <p>Your calendar-based task manager</p>
+                </div>
+                <div class='content'>
+                    <div class='greeting'>Hello {$fullName}! 👋</div>
+                    <p class='message'>Thank you for signing up with GrooDo. We're excited to help you organize your tasks and boost your productivity!</p>
+                    <p class='message'>To get started and access all features, please confirm your email address:</p>
+                    
+                    <div class='button-container'>
+                        <a href='{$confirmationUrl}' class='button'>Confirm Your Email</a>
+                    </div>
+                    
+                    <p class='message' style='font-size: 14px;'>Or copy and paste this link into your browser:</p>
+                    <div class='link-box'>{$confirmationUrl}</div>
+                    
+                    <div class='info-box'>
+                        <strong>⏱ Important:</strong> This confirmation link will expire in 1 hour for security reasons.
+                    </div>
+                    
+                    <p class='message' style='font-size: 14px; color: #718096;'>If you didn't create a GrooDo account, please ignore this email. Your email will not be added to our system.</p>
+                    
+                    <p class='message' style='margin-top: 30px; color: #2d3748;'>
+                        Best regards,<br>
+                        <strong>The GrooDo Team</strong>
+                    </p>
+                </div>
+                <div class='footer'>
+                    <p><strong>GrooDo</strong> - Organize your tasks, maximize your productivity</p>
+                    <p>This is an automated email. Please do not reply.</p>
+                </div>
             </div>
         </body>
         </html>

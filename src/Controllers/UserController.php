@@ -290,12 +290,14 @@ class UserController
         $this->logger->info('Email confirmation attempt started');
 
         try {
-            $data = $request->getParsedBody();
-            $token = $this->validationService->sanitizeInput($data['token'] ?? '');
+            // Get token from query parameters
+            $queryParams = $request->getQueryParams();
+            $token = $this->validationService->sanitizeInput($queryParams['token'] ?? '');
 
             if (empty($token)) {
                 $this->logger->warning('Email confirmation attempt without token');
-                return $this->responseHelper->error('Confirmation token is required', 400);
+                return $this->renderErrorPage($response, 'Missing Confirmation Token', 
+                    'The confirmation link is invalid or incomplete. Please check your email and try again.');
             }
 
             // Find user by confirmation token
@@ -304,7 +306,8 @@ class UserController
                 $this->logger->warning('Email confirmation attempt with invalid token', [
                     'token' => substr($token, 0, 8) . '...'
                 ]);
-                return $this->responseHelper->error('Invalid or expired confirmation token', 400);
+                return $this->renderErrorPage($response, 'Invalid Confirmation Link', 
+                    'This confirmation link is invalid or has already been used. Please try signing up again or contact support.');
             }
 
             // Check if email is already confirmed
@@ -312,9 +315,10 @@ class UserController
                 $this->logger->info('Email confirmation attempt for already confirmed email', [
                     'user_id' => $user['id']
                 ]);
-                return $this->responseHelper->success([
-                    'message' => 'Email is already confirmed'
-                ]);
+                // Redirect to homepage - already confirmed
+                return $response
+                    ->withHeader('Location', 'https://groodo.greq.me/?confirmed=already')
+                    ->withStatus(302);
             }
 
             // Check token expiration (1 hour)
@@ -323,7 +327,8 @@ class UserController
                 $this->logger->warning('Email confirmation attempt with expired token', [
                     'user_id' => $user['id']
                 ]);
-                return $this->responseHelper->error('Confirmation token has expired', 400);
+                return $this->renderErrorPage($response, 'Confirmation Link Expired', 
+                    'This confirmation link has expired. For security reasons, confirmation links are only valid for 1 hour. Please sign up again or contact support.');
             }
 
             // Confirm email
@@ -334,17 +339,108 @@ class UserController
                 'email' => $user['email']
             ]);
 
-            return $this->responseHelper->success([
-                'message' => 'Email confirmed successfully. You can now sign in.'
-            ]);
+            // Redirect to homepage with success message
+            return $response
+                ->withHeader('Location', 'https://groodo.greq.me/?confirmed=success')
+                ->withStatus(302);
 
         } catch (\Exception $e) {
             $this->logger->error('Email confirmation failed', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
-            return $this->responseHelper->internalError('Email confirmation failed');
+            return $this->renderErrorPage($response, 'Confirmation Failed', 
+                'An unexpected error occurred while confirming your email. Please try again or contact support.');
         }
+    }
+
+    private function renderErrorPage(Response $response, string $title, string $message): Response
+    {
+        $html = "
+        <!DOCTYPE html>
+        <html lang='en'>
+        <head>
+            <meta charset='UTF-8'>
+            <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+            <title>{$title} - GrooDo</title>
+            <style>
+                * { margin: 0; padding: 0; box-sizing: border-box; }
+                body {
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    min-height: 100vh;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    padding: 20px;
+                }
+                .container {
+                    background: white;
+                    border-radius: 16px;
+                    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+                    max-width: 500px;
+                    width: 100%;
+                    padding: 40px;
+                    text-align: center;
+                }
+                .icon {
+                    font-size: 64px;
+                    margin-bottom: 20px;
+                }
+                h1 {
+                    color: #1a202c;
+                    font-size: 28px;
+                    font-weight: 600;
+                    margin-bottom: 16px;
+                }
+                p {
+                    color: #4a5568;
+                    font-size: 16px;
+                    line-height: 1.6;
+                    margin-bottom: 30px;
+                }
+                .button {
+                    display: inline-block;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                    padding: 14px 32px;
+                    text-decoration: none;
+                    border-radius: 8px;
+                    font-size: 16px;
+                    font-weight: 600;
+                    transition: transform 0.2s, box-shadow 0.2s;
+                }
+                .button:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+                }
+                .footer {
+                    margin-top: 30px;
+                    padding-top: 20px;
+                    border-top: 1px solid #e2e8f0;
+                    color: #718096;
+                    font-size: 14px;
+                }
+            </style>
+        </head>
+        <body>
+            <div class='container'>
+                <div class='icon'>⚠️</div>
+                <h1>{$title}</h1>
+                <p>{$message}</p>
+                <a href='https://groodo.greq.me' class='button'>Go to GrooDo</a>
+                <div class='footer'>
+                    <strong>GrooDo</strong> - Organize your tasks, maximize your productivity
+                </div>
+            </div>
+        </body>
+        </html>
+        ";
+
+        $response->getBody()->write($html);
+        return $response
+            ->withHeader('Content-Type', 'text/html')
+            ->withStatus(400);
     }
 
     public function resetPassword(Request $request, Response $response): Response
