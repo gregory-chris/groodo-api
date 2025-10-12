@@ -25,23 +25,6 @@ AppFactory::setContainer($container);
 // Create App
 $app = AppFactory::create();
 
-// Add error middleware
-$errorMiddleware = $app->addErrorMiddleware(
-    (bool)($_ENV['APP_DEBUG'] ?? false),
-    true,
-    true
-);
-
-// Add routing middleware
-$app->addRoutingMiddleware();
-
-// Add case-insensitive route middleware (before routing)
-// AI suggested to remove this middleware for returning unsupported endpoints/methods
-$app->add(\App\Middleware\CaseInsensitiveRouteMiddleware::class);
-
-// Add body parsing middleware
-$app->addBodyParsingMiddleware();
-
 // Configure container dependencies
 require __DIR__ . '/../src/dependencies.php';
 
@@ -75,6 +58,13 @@ function addCorsHeadersToResponse($response, Request $request) {
     
     return $response;
 }
+
+// Add error middleware and configure custom error handlers
+$errorMiddleware = $app->addErrorMiddleware(
+    (bool)($_ENV['APP_DEBUG'] ?? false),
+    true,
+    true
+);
 
 // Custom error handlers for unsupported endpoints/methods
 $errorMiddleware->setErrorHandler(HttpNotFoundException::class, function (
@@ -152,6 +142,15 @@ $errorMiddleware->setErrorHandler(HttpMethodNotAllowedException::class, function
     
     return $response;
 });
+
+// Add routing middleware (must be added after error handlers)
+$app->addRoutingMiddleware();
+
+// Add case-insensitive route middleware
+$app->add(\App\Middleware\CaseInsensitiveRouteMiddleware::class);
+
+// Add body parsing middleware
+$app->addBodyParsingMiddleware();
 
 // Run app
 $app->run();
