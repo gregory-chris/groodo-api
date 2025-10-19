@@ -59,14 +59,23 @@ function addCorsHeadersToResponse($response, Request $request) {
     return $response;
 }
 
-// Add error middleware and configure custom error handlers
+// Add body parsing middleware (first)
+$app->addBodyParsingMiddleware();
+
+// Add case-insensitive route middleware
+$app->add(\App\Middleware\CaseInsensitiveRouteMiddleware::class);
+
+// Add routing middleware
+$app->addRoutingMiddleware();
+
+// Add error middleware and configure custom error handlers (last, so it catches all errors)
 $errorMiddleware = $app->addErrorMiddleware(
     (bool)($_ENV['APP_DEBUG'] ?? false),
     true,
     true
 );
 
-// Custom error handlers for unsupported endpoints/methods
+// Custom error handler for not found routes
 $errorMiddleware->setErrorHandler(HttpNotFoundException::class, function (
     Request $request,
     \Throwable $exception,
@@ -96,6 +105,7 @@ $errorMiddleware->setErrorHandler(HttpNotFoundException::class, function (
     return $response;
 });
 
+// Custom error handler for method not allowed
 $errorMiddleware->setErrorHandler(HttpMethodNotAllowedException::class, function (
     Request $request,
     \Throwable $exception,
@@ -142,15 +152,6 @@ $errorMiddleware->setErrorHandler(HttpMethodNotAllowedException::class, function
     
     return $response;
 });
-
-// Add routing middleware (must be added after error handlers)
-$app->addRoutingMiddleware();
-
-// Add case-insensitive route middleware
-$app->add(\App\Middleware\CaseInsensitiveRouteMiddleware::class);
-
-// Add body parsing middleware
-$app->addBodyParsingMiddleware();
 
 // Run app
 $app->run();
