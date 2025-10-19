@@ -31,28 +31,66 @@ require __DIR__ . '/../src/dependencies.php';
 // Configure routes
 require __DIR__ . '/../src/routes.php';
 
+// Load CORS configuration
+$corsConfig = require __DIR__ . '/../config/cors.php';
+$GLOBALS['corsConfig'] = $corsConfig;
+
 // Helper function to add CORS headers to error responses
-function addCorsHeadersToResponse($response, Request $request) {
-    $host = $request->getUri()->getHost();
+function addCorsHeadersToResponse($response, Request $request, array $corsConfig) {
+    $origin = $request->getHeaderLine('Origin');
     
-    // Determine the allowed origin based on the request host
-    if (strtolower($host) === 'groodo-api.greq.me') {
-        $allowedOrigin = 'https://groodo.greq.me';
-    } elseif (in_array(strtolower($host), ['localhost', '127.0.0.1', '::1'], true) || 
-              str_starts_with(strtolower($host), 'localhost:')) {
-        $allowedOrigin = '*';
-    } else {
-        $allowedOrigin = '*';
+    // If no origin header, no CORS headers needed
+    if (empty($origin)) {
+        return $response;
     }
+    
+    // Parse origin
+    $parsedOrigin = parse_url($origin);
+    if ($parsedOrigin === false || !isset($parsedOrigin['host'])) {
+        return $response;
+    }
+    
+    $originHost = strtolower($parsedOrigin['host']);
+    
+    // Check if origin is localhost (development)
+    $localhostPatterns = ['localhost', '127.0.0.1', '::1'];
+    $isLocalhost = in_array($originHost, $localhostPatterns);
+    
+    if ($isLocalhost) {
+        // Echo back the exact origin for localhost
+        $allowedOrigin = $origin;
+    } else {
+        // Check against allowed origins from config
+        $allowedOrigin = null;
+        foreach ($corsConfig['allowed_origins'] as $configOrigin) {
+            $parsedConfigOrigin = parse_url(trim($configOrigin));
+            if ($parsedConfigOrigin !== false && 
+                isset($parsedConfigOrigin['host']) && 
+                strtolower($parsedConfigOrigin['host']) === $originHost) {
+                $allowedOrigin = $origin;
+                break;
+            }
+        }
+        
+        // If origin not allowed, don't add CORS headers
+        if ($allowedOrigin === null) {
+            return $response;
+        }
+    }
+    
+    // Build allowed methods and headers from config
+    $allowedMethods = implode(', ', $corsConfig['allowed_methods']);
+    $allowedHeaders = implode(', ', $corsConfig['allowed_headers']);
+    $maxAge = (string)$corsConfig['max_age'];
     
     $response = $response
         ->withHeader('Access-Control-Allow-Origin', $allowedOrigin)
-        ->withHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
-        ->withHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-        ->withHeader('Access-Control-Max-Age', '3600');
+        ->withHeader('Access-Control-Allow-Methods', $allowedMethods)
+        ->withHeader('Access-Control-Allow-Headers', $allowedHeaders)
+        ->withHeader('Access-Control-Max-Age', $maxAge);
     
-    // Only add credentials header if not using wildcard origin
-    if ($allowedOrigin !== '*') {
+    // Add credentials header if enabled in config
+    if ($corsConfig['credentials']) {
         $response = $response->withHeader('Access-Control-Allow-Credentials', 'true');
     }
     
@@ -100,7 +138,7 @@ $errorMiddleware->setErrorHandler(HttpNotFoundException::class, function (
         ->withHeader('Content-Type', 'application/json');
     
     // Add CORS headers
-    $response = addCorsHeadersToResponse($response, $request);
+    $response = addCorsHeadersToResponse($response, $request, $GLOBALS['corsConfig']);
     
     return $response;
 });
@@ -148,7 +186,7 @@ $errorMiddleware->setErrorHandler(HttpMethodNotAllowedException::class, function
     }
     
     // Add CORS headers
-    $response = addCorsHeadersToResponse($response, $request);
+    $response = addCorsHeadersToResponse($response, $request, $GLOBALS['corsConfig']);
     
     return $response;
 });
