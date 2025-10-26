@@ -243,7 +243,7 @@ class TaskController
             }
             
             if (isset($data['order'])) {
-                $updateData['order'] = intval($data['order']);
+                $updateData['order_index'] = intval($data['order']);
             }
 
             // Update task
