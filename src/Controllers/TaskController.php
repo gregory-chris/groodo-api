@@ -241,6 +241,10 @@ class TaskController
             if (isset($data['completed'])) {
                 $updateData['completed'] = (bool)$data['completed'] ? 1 : 0;
             }
+            
+            if (isset($data['order'])) {
+                $updateData['order'] = intval($data['order']);
+            }
 
             // Update task
             $success = $this->taskModel->updateTask($taskId, $userId, $updateData);
