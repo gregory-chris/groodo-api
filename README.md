@@ -71,7 +71,7 @@ The API uses JWT (JSON Web Token) authentication:
 1. Sign up and confirm email address
 2. Sign in to receive JWT token
 3. Include token in `Authorization: Bearer <token>` header
-4. Tokens auto-refresh on each request (24-hour expiration)
+4. Tokens auto-refresh on each request (7-day expiration)
 
 ## Base URL
 

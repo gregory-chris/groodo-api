@@ -147,7 +147,7 @@ class JwtService
         return $token;
     }
 
-    public function isTokenExpiringSoon(int $expirationTime, int $thresholdSeconds = 3600): bool
+    public function isTokenExpiringSoon(int $expirationTime, int $thresholdSeconds = 24 * 3600): bool // 24 hours
     {
         $currentTime = time();
         $timeUntilExpiration = $expirationTime - $currentTime;

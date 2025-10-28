@@ -34,7 +34,7 @@ The GrooDo API uses **JWT (JSON Web Token)** based authentication for securing e
 
 ### Token Properties
 - **Algorithm**: HS256 (HMAC with SHA-256)
-- **Expiration**: 24 hours from issue time
+- **Expiration**: 7 days from issue time
 - **Auto-Refresh**: Token is automatically refreshed on each authenticated request
 - **Issuer**: `groodo-api`
 - **Audience**: `groodo-app`

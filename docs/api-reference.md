@@ -144,7 +144,7 @@ Authenticate user and receive JWT token for accessing protected endpoints.
     "message": "Sign-in successful",
     "token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
     "expiresAt": "2025-09-29T08:00:00+00:00",
-    "expiresIn": 86400,
+    "expiresIn": 604800,
     "user": {
       "id": 1,
       "email": "user@example.com",
