@@ -88,22 +88,23 @@ class AuthMiddleware implements MiddlewareInterface
             return $this->responseHelper->error('Token expired', 403);
         }
 
-        // Check if token is expiring soon and refresh it
+        // Check if token is expiring soon and extend its validity to 7 days (604800 seconds) from now, without generating a new token
         if ($this->jwtService->isTokenExpiringSoon($validation['expires_at'])) {
-            $this->logger->info('Token expiring soon, refreshing', ['user_id' => $userId]);
-            
-            $newTokenData = $this->jwtService->generateToken($userId);
-            
-            // Update token in database
+            $this->logger->info('Token expiring soon, extending', ['user_id' => $userId]);
+
+            $newExpiresAt = time() + 7 * 24 * 3600; // 7 days from now in seconds (UTC)
+            $isoNewExpiresAt = gmdate('c', $newExpiresAt);
+
+            // Update only the expiration in the database, keep the token the same
             $this->userModel->updateAuthToken(
                 $userId,
-                $newTokenData['token'],
-                $newTokenData['expires_at']
+                $token,
+                $isoNewExpiresAt
             );
 
-            $this->logger->info('Token refreshed successfully', [
+            $this->logger->info('Token expiration extended successfully', [
                 'user_id' => $userId,
-                'new_expires_at' => $newTokenData['expires_at']
+                'new_expires_at' => $isoNewExpiresAt
             ]);
         }
 
