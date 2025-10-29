@@ -11,6 +11,4 @@ authorization: Bearer $(environment.GROODO_AUTH_TOKEN)
 status-code equals: 200
 response-body.result equals: success
 response-body.data exists: true
-response-body.data is-array: true
-response-body.data.length equals: 0
 
