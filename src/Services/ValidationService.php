@@ -10,12 +10,14 @@ class ValidationService
     private LoggerInterface $logger;
     private int $maxTasksPerDay;
     private int $passwordMinLength;
+    private int $maxTaskNestingDepth;
 
     public function __construct(LoggerInterface $logger)
     {
         $this->logger = $logger;
         $this->maxTasksPerDay = (int)($_ENV['MAX_TASKS_PER_DAY'] ?? 50);
         $this->passwordMinLength = (int)($_ENV['PASSWORD_MIN_LENGTH'] ?? 8);
+        $this->maxTaskNestingDepth = (int)($_ENV['MAX_TASK_NESTING_DEPTH'] ?? 2);
     }
 
     public function validateEmail(string $email): array
@@ -330,5 +332,324 @@ class ValidationService
     public function isValidId(?string $id): bool
     {
         return $id !== null && is_numeric($id) && (int)$id > 0;
+    }
+
+    public function validateProjectName(string $name): array
+    {
+        $this->logger->debug('Validating project name');
+
+        $errors = [];
+
+        if (empty($name)) {
+            $errors[] = 'Project name is required';
+        } else {
+            if (strlen($name) > 256) {
+                $errors[] = 'Project name is too long (maximum 256 characters)';
+            }
+
+            if (strlen(trim($name)) === 0) {
+                $errors[] = 'Project name cannot be empty or contain only whitespace';
+            }
+        }
+
+        return [
+            'valid' => empty($errors),
+            'errors' => $errors
+        ];
+    }
+
+    public function validateProjectDescription(?string $description): array
+    {
+        $this->logger->debug('Validating project description');
+
+        $errors = [];
+
+        if ($description !== null && strlen($description) > 2048) {
+            $errors[] = 'Project description is too long (maximum 2048 characters)';
+        }
+
+        return [
+            'valid' => empty($errors),
+            'errors' => $errors
+        ];
+    }
+
+    public function validateUrl(?string $url): array
+    {
+        $this->logger->debug('Validating URL');
+
+        $errors = [];
+
+        if ($url !== null && !empty($url)) {
+            if (!filter_var($url, FILTER_VALIDATE_URL)) {
+                $errors[] = 'Invalid URL format';
+            } elseif (strlen($url) > 2048) {
+                $errors[] = 'URL is too long (maximum 2048 characters)';
+            }
+        }
+
+        return [
+            'valid' => empty($errors),
+            'errors' => $errors
+        ];
+    }
+
+    public function validateColor(?string $color): array
+    {
+        $this->logger->debug('Validating color');
+
+        $errors = [];
+
+        if ($color !== null && !empty($color)) {
+            // Validate hex color format (#RRGGBB or #RRGGBBAA)
+            if (!preg_match('/^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$/', $color)) {
+                $errors[] = 'Color must be a valid hex color code (e.g., #FF0000 or #FF0000FF)';
+            }
+        }
+
+        return [
+            'valid' => empty($errors),
+            'errors' => $errors
+        ];
+    }
+
+    public function validateCustomFields(?string $customFieldsJson): array
+    {
+        $this->logger->debug('Validating custom fields JSON');
+
+        $errors = [];
+
+        if ($customFieldsJson !== null && !empty($customFieldsJson)) {
+            $decoded = json_decode($customFieldsJson, true);
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                $errors[] = 'Invalid JSON format for custom fields';
+            }
+        }
+
+        return [
+            'valid' => empty($errors),
+            'errors' => $errors
+        ];
+    }
+
+    public function validateProjectCreation(array $data): array
+    {
+        $this->logger->debug('Validating project creation data');
+
+        $allErrors = [];
+
+        // Validate name
+        $nameValidation = $this->validateProjectName($data['name'] ?? '');
+        if (!$nameValidation['valid']) {
+            $allErrors = array_merge($allErrors, $nameValidation['errors']);
+        }
+
+        // Validate description (optional)
+        $descriptionValidation = $this->validateProjectDescription($data['description'] ?? null);
+        if (!$descriptionValidation['valid']) {
+            $allErrors = array_merge($allErrors, $descriptionValidation['errors']);
+        }
+
+        // Validate URL (optional)
+        $urlValidation = $this->validateUrl($data['url'] ?? null);
+        if (!$urlValidation['valid']) {
+            $allErrors = array_merge($allErrors, $urlValidation['errors']);
+        }
+
+        // Validate GitHub URL (optional)
+        $githubUrlValidation = $this->validateUrl($data['githubUrl'] ?? null);
+        if (!$githubUrlValidation['valid']) {
+            $allErrors = array_merge($allErrors, $githubUrlValidation['errors']);
+        }
+
+        // Validate color (optional)
+        $colorValidation = $this->validateColor($data['color'] ?? null);
+        if (!$colorValidation['valid']) {
+            $allErrors = array_merge($allErrors, $colorValidation['errors']);
+        }
+
+        // Validate custom fields (optional)
+        if (isset($data['customFields'])) {
+            $customFieldsJson = is_array($data['customFields']) ? json_encode($data['customFields']) : $data['customFields'];
+            $customFieldsValidation = $this->validateCustomFields($customFieldsJson);
+            if (!$customFieldsValidation['valid']) {
+                $allErrors = array_merge($allErrors, $customFieldsValidation['errors']);
+            }
+        }
+
+        return [
+            'valid' => empty($allErrors),
+            'errors' => $allErrors
+        ];
+    }
+
+    public function validateProjectUpdate(array $data): array
+    {
+        $this->logger->debug('Validating project update data');
+
+        $allErrors = [];
+
+        // Validate name if provided
+        if (isset($data['name'])) {
+            $nameValidation = $this->validateProjectName($data['name']);
+            if (!$nameValidation['valid']) {
+                $allErrors = array_merge($allErrors, $nameValidation['errors']);
+            }
+        }
+
+        // Validate description if provided
+        if (isset($data['description'])) {
+            $descriptionValidation = $this->validateProjectDescription($data['description']);
+            if (!$descriptionValidation['valid']) {
+                $allErrors = array_merge($allErrors, $descriptionValidation['errors']);
+            }
+        }
+
+        // Validate URL if provided
+        if (isset($data['url'])) {
+            $urlValidation = $this->validateUrl($data['url']);
+            if (!$urlValidation['valid']) {
+                $allErrors = array_merge($allErrors, $urlValidation['errors']);
+            }
+        }
+
+        // Validate GitHub URL if provided
+        if (isset($data['githubUrl'])) {
+            $githubUrlValidation = $this->validateUrl($data['githubUrl']);
+            if (!$githubUrlValidation['valid']) {
+                $allErrors = array_merge($allErrors, $githubUrlValidation['errors']);
+            }
+        }
+
+        // Validate color if provided
+        if (isset($data['color'])) {
+            $colorValidation = $this->validateColor($data['color']);
+            if (!$colorValidation['valid']) {
+                $allErrors = array_merge($allErrors, $colorValidation['errors']);
+            }
+        }
+
+        // Validate custom fields if provided
+        if (isset($data['customFields'])) {
+            $customFieldsJson = is_array($data['customFields']) ? json_encode($data['customFields']) : $data['customFields'];
+            $customFieldsValidation = $this->validateCustomFields($customFieldsJson);
+            if (!$customFieldsValidation['valid']) {
+                $allErrors = array_merge($allErrors, $customFieldsValidation['errors']);
+            }
+        }
+
+        return [
+            'valid' => empty($allErrors),
+            'errors' => $allErrors
+        ];
+    }
+
+    public function validateProjectId(?int $projectId, int $userId, \App\Models\Project $projectModel): array
+    {
+        $this->logger->debug('Validating project ID', [
+            'project_id' => $projectId,
+            'user_id' => $userId
+        ]);
+
+        $errors = [];
+
+        if ($projectId === null) {
+            return [
+                'valid' => true,
+                'errors' => []
+            ];
+        }
+
+        $project = $projectModel->findByIdAndUserId($projectId, $userId);
+        if ($project === null) {
+            $errors[] = 'Project not found or access denied';
+        }
+
+        return [
+            'valid' => empty($errors),
+            'errors' => $errors
+        ];
+    }
+
+    public function validateParentTaskId(?int $parentId, int $userId, \App\Models\Task $taskModel): array
+    {
+        $this->logger->debug('Validating parent task ID', [
+            'parent_id' => $parentId,
+            'user_id' => $userId
+        ]);
+
+        $errors = [];
+
+        if ($parentId === null) {
+            return [
+                'valid' => true,
+                'errors' => []
+            ];
+        }
+
+        $parentTask = $taskModel->findByIdAndUserId($parentId, $userId);
+        if ($parentTask === null) {
+            $errors[] = 'Parent task not found or access denied';
+        } elseif ($parentTask['project_id'] === null) {
+            $errors[] = 'Parent task must belong to a project';
+        } elseif (!$taskModel->validateNestingDepth($parentId, $userId, $this->maxTaskNestingDepth)) {
+            $errors[] = "Maximum nesting depth of {$this->maxTaskNestingDepth} exceeded";
+        }
+
+        return [
+            'valid' => empty($errors),
+            'errors' => $errors
+        ];
+    }
+
+    public function validateTaskProjectAssignment(array $data, int $userId, \App\Models\Task $taskModel, \App\Models\Project $projectModel): array
+    {
+        $this->logger->debug('Validating task project assignment', [
+            'user_id' => $userId
+        ]);
+
+        $allErrors = [];
+
+        // Validate project ID
+        $projectId = $data['projectId'] ?? null;
+        if ($projectId !== null) {
+            $projectValidation = $this->validateProjectId($projectId, $userId, $projectModel);
+            if (!$projectValidation['valid']) {
+                $allErrors = array_merge($allErrors, $projectValidation['errors']);
+            }
+        }
+
+        return [
+            'valid' => empty($allErrors),
+            'errors' => $allErrors
+        ];
+    }
+
+    public function validateTaskParentAssignment(array $data, int $userId, \App\Models\Task $taskModel): array
+    {
+        $this->logger->debug('Validating task parent assignment', [
+            'user_id' => $userId
+        ]);
+
+        $allErrors = [];
+
+        // Validate parent ID
+        $parentId = $data['parentId'] ?? null;
+        if ($parentId !== null) {
+            $parentValidation = $this->validateParentTaskId($parentId, $userId, $taskModel);
+            if (!$parentValidation['valid']) {
+                $allErrors = array_merge($allErrors, $parentValidation['errors']);
+            }
+        }
+
+        return [
+            'valid' => empty($allErrors),
+            'errors' => $allErrors
+        ];
+    }
+
+    public function getMaxTaskNestingDepth(): int
+    {
+        return $this->maxTaskNestingDepth;
     }
 }

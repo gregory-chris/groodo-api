@@ -10,8 +10,10 @@ use App\Services\ValidationService;
 use App\Utils\ResponseHelper;
 use App\Models\User;
 use App\Models\Task;
+use App\Models\Project;
 use App\Controllers\UserController;
 use App\Controllers\TaskController;
+use App\Controllers\ProjectController;
 use App\Middleware\AuthMiddleware;
 use App\Middleware\SecurityMiddleware;
 use App\Middleware\CorsMiddleware;
@@ -67,6 +69,10 @@ $container->set(Task::class, function (ContainerInterface $c) {
     return new Task($c->get(Database::class), $c->get(LoggerInterface::class));
 });
 
+$container->set(Project::class, function (ContainerInterface $c) {
+    return new Project($c->get(Database::class), $c->get(LoggerInterface::class));
+});
+
 // Controllers
 $container->set(UserController::class, function (ContainerInterface $c) {
     return new UserController(
@@ -82,6 +88,17 @@ $container->set(UserController::class, function (ContainerInterface $c) {
 
 $container->set(TaskController::class, function (ContainerInterface $c) {
     return new TaskController(
+        $c->get(Task::class),
+        $c->get(Project::class),
+        $c->get(ValidationService::class),
+        $c->get(ResponseHelper::class),
+        $c->get(LoggerInterface::class)
+    );
+});
+
+$container->set(ProjectController::class, function (ContainerInterface $c) {
+    return new ProjectController(
+        $c->get(Project::class),
         $c->get(Task::class),
         $c->get(ValidationService::class),
         $c->get(ResponseHelper::class),

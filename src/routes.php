@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 use App\Controllers\UserController;
 use App\Controllers\TaskController;
+use App\Controllers\ProjectController;
 use App\Middleware\AuthMiddleware;
 use App\Middleware\CorsMiddleware;
 use App\Middleware\LoggingMiddleware;
@@ -58,6 +59,24 @@ $app->group('/api', function (RouteCollectorProxy $group) {
         $taskGroup->put('/{taskId:[0-9]+}', [TaskController::class, 'updateTask']);
         $taskGroup->patch('/{taskId:[0-9]+}', [TaskController::class, 'updateTask']);
         $taskGroup->delete('/{taskId:[0-9]+}', [TaskController::class, 'deleteTask']);
-    $taskGroup->post('/{taskId:[0-9]+}/updateorder', [TaskController::class, 'updateTaskOrder']);
+        $taskGroup->post('/{taskId:[0-9]+}/updateorder', [TaskController::class, 'updateTaskOrder']);
+        $taskGroup->post('/{taskId:[0-9]+}/assign-project', [TaskController::class, 'assignTaskToProject']);
+        $taskGroup->post('/{taskId:[0-9]+}/assign-parent', [TaskController::class, 'assignTaskToParent']);
+        $taskGroup->post('/{taskId:[0-9]+}/unassign-project', [TaskController::class, 'unassignTaskFromProject']);
+        $taskGroup->post('/{taskId:[0-9]+}/unassign-parent', [TaskController::class, 'unassignTaskFromParent']);
+    })->add(AuthMiddleware::class);
+    
+    // Project routes
+    $group->group('/projects', function (RouteCollectorProxy $projectGroup) {
+        $projectGroup->get('', [ProjectController::class, 'getProjects']);
+        $projectGroup->post('', [ProjectController::class, 'createProject']);
+    })->add(AuthMiddleware::class);
+    
+    $group->group('/project', function (RouteCollectorProxy $projectGroup) {
+        $projectGroup->get('/{projectId:[0-9]+}', [ProjectController::class, 'getProject']);
+        $projectGroup->put('/{projectId:[0-9]+}', [ProjectController::class, 'updateProject']);
+        $projectGroup->patch('/{projectId:[0-9]+}', [ProjectController::class, 'updateProject']);
+        $projectGroup->delete('/{projectId:[0-9]+}', [ProjectController::class, 'deleteProject']);
+        $projectGroup->get('/{projectId:[0-9]+}/tasks', [ProjectController::class, 'getProjectTasks']);
     })->add(AuthMiddleware::class);
 });

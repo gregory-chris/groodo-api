@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Models\Task;
+use App\Models\Project;
 use App\Services\ValidationService;
 use App\Utils\ResponseHelper;
 use Psr\Http\Message\ResponseInterface as Response;
@@ -13,17 +14,20 @@ use Psr\Log\LoggerInterface;
 class TaskController
 {
     private Task $taskModel;
+    private Project $projectModel;
     private ValidationService $validationService;
     private ResponseHelper $responseHelper;
     private LoggerInterface $logger;
 
     public function __construct(
         Task $taskModel,
+        Project $projectModel,
         ValidationService $validationService,
         ResponseHelper $responseHelper,
         LoggerInterface $logger
     ) {
         $this->taskModel = $taskModel;
+        $this->projectModel = $projectModel;
         $this->validationService = $validationService;
         $this->responseHelper = $responseHelper;
         $this->logger = $logger;
@@ -70,8 +74,23 @@ class TaskController
                 $untilDate = $queryParams['until'];
             }
 
+            // Validate project filter
+            $projectId = null;
+            if (isset($queryParams['projectId'])) {
+                if (!$this->validationService->isValidId($queryParams['projectId'])) {
+                    return $this->responseHelper->error('Invalid project ID', 400);
+                }
+                $projectId = (int)$queryParams['projectId'];
+                
+                // Verify project belongs to user
+                $project = $this->projectModel->findByIdAndUserId($projectId, $userId);
+                if ($project === null) {
+                    return $this->responseHelper->error('Project not found', 400);
+                }
+            }
+
             // Get tasks
-            $tasks = $this->taskModel->findByUserId($userId, $fromDate, $untilDate, $limit, $offset);
+            $tasks = $this->taskModel->findByUserId($userId, $fromDate, $untilDate, $projectId, $limit, $offset);
 
             // Format tasks for response
             $formattedTasks = array_map(
@@ -120,13 +139,33 @@ class TaskController
                 return $this->responseHelper->validationError($limitValidation['errors']);
             }
 
+            // Validate project and parent if provided
+            $projectId = isset($data['projectId']) ? (int)$data['projectId'] : null;
+            $parentId = isset($data['parentId']) ? (int)$data['parentId'] : null;
+
+            if ($projectId !== null) {
+                $projectValidation = $this->validationService->validateProjectId($projectId, $userId, $this->projectModel);
+                if (!$projectValidation['valid']) {
+                    return $this->responseHelper->validationError($projectValidation['errors']);
+                }
+            }
+
+            if ($parentId !== null) {
+                $parentValidation = $this->validationService->validateParentTaskId($parentId, $userId, $this->taskModel);
+                if (!$parentValidation['valid']) {
+                    return $this->responseHelper->validationError($parentValidation['errors']);
+                }
+            }
+
             // Create task
             $taskId = $this->taskModel->createTask([
                 'user_id' => $userId,
                 'title' => $this->validationService->sanitizeInput($data['title']),
                 'description' => isset($data['description']) ? $this->validationService->sanitizeInput($data['description']) : '',
                 'date' => $date,
-                'completed' => $data['completed'] ?? false
+                'completed' => $data['completed'] ?? false,
+                'project_id' => $projectId,
+                'parent_id' => $parentId,
             ]);
 
             // Get created task
@@ -244,6 +283,48 @@ class TaskController
             
             if (isset($data['order'])) {
                 $updateData['order_index'] = intval($data['order']);
+            }
+
+            // Handle project assignment
+            if (isset($data['projectId'])) {
+                $projectId = $data['projectId'] !== null ? (int)$data['projectId'] : null;
+                
+                if ($projectId !== null) {
+                    $projectValidation = $this->validationService->validateProjectId($projectId, $userId, $this->projectModel);
+                    if (!$projectValidation['valid']) {
+                        return $this->responseHelper->validationError($projectValidation['errors']);
+                    }
+                }
+                
+                $updateData['project_id'] = $projectId;
+                
+                // If task has children, update their project_id too
+                if ($projectId !== null) {
+                    $this->taskModel->updateChildrenProjectId($taskId, $userId, $projectId);
+                }
+            }
+
+            // Handle parent assignment
+            if (isset($data['parentId'])) {
+                $parentId = $data['parentId'] !== null ? (int)$data['parentId'] : null;
+                
+                if ($parentId !== null) {
+                    $parentValidation = $this->validationService->validateParentTaskId($parentId, $userId, $this->taskModel);
+                    if (!$parentValidation['valid']) {
+                        return $this->responseHelper->validationError($parentValidation['errors']);
+                    }
+                    
+                    // Get parent task to ensure project_id matches
+                    $parentTask = $this->taskModel->findByIdAndUserId($parentId, $userId);
+                    if ($parentTask === null || $parentTask['project_id'] === null) {
+                        return $this->responseHelper->error('Parent task must belong to a project', 400);
+                    }
+                    
+                    // Set child's project_id to match parent's project_id
+                    $updateData['project_id'] = $parentTask['project_id'];
+                }
+                
+                $updateData['parent_id'] = $parentId;
             }
 
             // Update task
@@ -423,6 +504,244 @@ class TaskController
                 'trace' => $e->getTraceAsString()
             ]);
             return $this->responseHelper->internalError('Failed to update task order');
+        }
+    }
+
+    public function assignTaskToProject(Request $request, Response $response): Response
+    {
+        $this->logger->info('Assign task to project request started');
+
+        try {
+            $userId = $request->getAttribute('user_id');
+            $taskId = (int)$request->getAttribute('taskId');
+            $data = $request->getParsedBody();
+
+            // Validate task ID
+            if (!$this->validationService->isValidId((string)$taskId)) {
+                return $this->responseHelper->error('Invalid task ID', 400);
+            }
+
+            // Validate assignment data
+            $validation = $this->validationService->validateTaskProjectAssignment($data, $userId, $this->taskModel, $this->projectModel);
+            if (!$validation['valid']) {
+                return $this->responseHelper->validationError($validation['errors']);
+            }
+
+            // Find task
+            $task = $this->taskModel->findByIdAndUserId($taskId, $userId);
+            if ($task === null) {
+                return $this->responseHelper->notFound('Task not found');
+            }
+
+            $projectId = isset($data['projectId']) ? (int)$data['projectId'] : null;
+
+            // Update task project_id
+            $updateData = ['project_id' => $projectId];
+            
+            // If task has children, update their project_id too
+            if ($projectId !== null) {
+                $this->taskModel->updateChildrenProjectId($taskId, $userId, $projectId);
+            }
+
+            $success = $this->taskModel->updateTask($taskId, $userId, $updateData);
+
+            if (!$success) {
+                return $this->responseHelper->internalError('Failed to assign task to project');
+            }
+
+            $updatedTask = $this->taskModel->findByIdAndUserId($taskId, $userId);
+            $formattedTask = $this->taskModel->formatTaskForResponse($updatedTask);
+
+            $this->logger->info('Task assigned to project successfully', [
+                'task_id' => $taskId,
+                'project_id' => $projectId,
+                'user_id' => $userId
+            ]);
+
+            return $this->responseHelper->success($formattedTask);
+
+        } catch (\Exception $e) {
+            $this->logger->error('Assign task to project failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return $this->responseHelper->internalError('Failed to assign task to project');
+        }
+    }
+
+    public function assignTaskToParent(Request $request, Response $response): Response
+    {
+        $this->logger->info('Assign task to parent request started');
+
+        try {
+            $userId = $request->getAttribute('user_id');
+            $taskId = (int)$request->getAttribute('taskId');
+            $data = $request->getParsedBody();
+
+            // Validate task ID
+            if (!$this->validationService->isValidId((string)$taskId)) {
+                return $this->responseHelper->error('Invalid task ID', 400);
+            }
+
+            // Validate assignment data
+            $validation = $this->validationService->validateTaskParentAssignment($data, $userId, $this->taskModel);
+            if (!$validation['valid']) {
+                return $this->responseHelper->validationError($validation['errors']);
+            }
+
+            // Find task
+            $task = $this->taskModel->findByIdAndUserId($taskId, $userId);
+            if ($task === null) {
+                return $this->responseHelper->notFound('Task not found');
+            }
+
+            $parentId = isset($data['parentId']) ? (int)$data['parentId'] : null;
+
+            if ($parentId !== null) {
+                // Get parent task
+                $parentTask = $this->taskModel->findByIdAndUserId($parentId, $userId);
+                if ($parentTask === null || $parentTask['project_id'] === null) {
+                    return $this->responseHelper->error('Parent task must belong to a project', 400);
+                }
+
+                // Validate that child's project_id matches parent's project_id
+                if ($task['project_id'] !== $parentTask['project_id']) {
+                    // Update child's project_id to match parent
+                    $updateData = [
+                        'parent_id' => $parentId,
+                        'project_id' => $parentTask['project_id']
+                    ];
+                } else {
+                    $updateData = ['parent_id' => $parentId];
+                }
+            } else {
+                $updateData = ['parent_id' => null];
+            }
+
+            $success = $this->taskModel->updateTask($taskId, $userId, $updateData);
+
+            if (!$success) {
+                return $this->responseHelper->internalError('Failed to assign task to parent');
+            }
+
+            $updatedTask = $this->taskModel->findByIdAndUserId($taskId, $userId);
+            $formattedTask = $this->taskModel->formatTaskForResponse($updatedTask);
+
+            $this->logger->info('Task assigned to parent successfully', [
+                'task_id' => $taskId,
+                'parent_id' => $parentId,
+                'user_id' => $userId
+            ]);
+
+            return $this->responseHelper->success($formattedTask);
+
+        } catch (\Exception $e) {
+            $this->logger->error('Assign task to parent failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return $this->responseHelper->internalError('Failed to assign task to parent');
+        }
+    }
+
+    public function unassignTaskFromProject(Request $request, Response $response): Response
+    {
+        $this->logger->info('Unassign task from project request started');
+
+        try {
+            $userId = $request->getAttribute('user_id');
+            $taskId = (int)$request->getAttribute('taskId');
+
+            // Validate task ID
+            if (!$this->validationService->isValidId((string)$taskId)) {
+                return $this->responseHelper->error('Invalid task ID', 400);
+            }
+
+            // Find task
+            $task = $this->taskModel->findByIdAndUserId($taskId, $userId);
+            if ($task === null) {
+                return $this->responseHelper->notFound('Task not found');
+            }
+
+            // Unassign project (set project_id to NULL)
+            // Also remove parent_id if task is nested
+            $updateData = [
+                'project_id' => null,
+                'parent_id' => null
+            ];
+
+            // If task has children, unassign their project_id too
+            $this->taskModel->updateChildrenProjectId($taskId, $userId, null);
+
+            $success = $this->taskModel->updateTask($taskId, $userId, $updateData);
+
+            if (!$success) {
+                return $this->responseHelper->internalError('Failed to unassign task from project');
+            }
+
+            $updatedTask = $this->taskModel->findByIdAndUserId($taskId, $userId);
+            $formattedTask = $this->taskModel->formatTaskForResponse($updatedTask);
+
+            $this->logger->info('Task unassigned from project successfully', [
+                'task_id' => $taskId,
+                'user_id' => $userId
+            ]);
+
+            return $this->responseHelper->success($formattedTask);
+
+        } catch (\Exception $e) {
+            $this->logger->error('Unassign task from project failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return $this->responseHelper->internalError('Failed to unassign task from project');
+        }
+    }
+
+    public function unassignTaskFromParent(Request $request, Response $response): Response
+    {
+        $this->logger->info('Unassign task from parent request started');
+
+        try {
+            $userId = $request->getAttribute('user_id');
+            $taskId = (int)$request->getAttribute('taskId');
+
+            // Validate task ID
+            if (!$this->validationService->isValidId((string)$taskId)) {
+                return $this->responseHelper->error('Invalid task ID', 400);
+            }
+
+            // Find task
+            $task = $this->taskModel->findByIdAndUserId($taskId, $userId);
+            if ($task === null) {
+                return $this->responseHelper->notFound('Task not found');
+            }
+
+            // Unassign parent (set parent_id to NULL, keep project_id unchanged)
+            $updateData = ['parent_id' => null];
+
+            $success = $this->taskModel->updateTask($taskId, $userId, $updateData);
+
+            if (!$success) {
+                return $this->responseHelper->internalError('Failed to unassign task from parent');
+            }
+
+            $updatedTask = $this->taskModel->findByIdAndUserId($taskId, $userId);
+            $formattedTask = $this->taskModel->formatTaskForResponse($updatedTask);
+
+            $this->logger->info('Task unassigned from parent successfully', [
+                'task_id' => $taskId,
+                'user_id' => $userId
+            ]);
+
+            return $this->responseHelper->success($formattedTask);
+
+        } catch (\Exception $e) {
+            $this->logger->error('Unassign task from parent failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return $this->responseHelper->internalError('Failed to unassign task from parent');
         }
     }
 }
