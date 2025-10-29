@@ -1,0 +1,13 @@
+project: GrooDo API - Projects
+is-http: true
+
+====
+
+GET /api/projects HTTP/1.1
+host: localhost:8000
+content-type: application/json
+
+====
+
+status-code equals: 200
+

@@ -1,0 +1,26 @@
+extends: project-template.greq
+depends-on: ../users/06-signin-success-confirmed.greq
+set-environment.GROODO_AUTH_TOKEN: $(dependency.response-body.data.token)
+
+====
+
+POST /api/projects HTTP/1.1
+authorization: Bearer $(dependency.response-body.data.token)
+
+{
+  "name": "Minimal Project",
+  "description": "A project with minimal fields"
+}
+
+====
+
+status-code equals: 200
+or status-code equals: 201
+response-body.result equals: success
+response-body.data.id exists: true
+response-body.data.name equals: Minimal Project
+response-body.data.description equals: A project with minimal fields
+response-body.data.userId exists: true
+response-body.data.createdAt exists: true
+response-body.data.updatedAt exists: true
+

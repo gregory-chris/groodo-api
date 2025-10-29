@@ -1,0 +1,21 @@
+extends: project-template.greq
+depends-on: 01-create-project-1.greq
+set-environment.PROJECT_1_ID: $(dependency.response-body.data.id)
+
+====
+
+GET /api/project/$(environment.PROJECT_1_ID) HTTP/1.1
+authorization: Bearer $(environment.GROODO_AUTH_TOKEN)
+
+====
+
+status-code equals: 200
+response-body.result equals: success
+response-body.data.id equals: $(environment.PROJECT_1_ID)
+response-body.data.name equals: Test Project 1
+response-body.data.description equals: This is the first test project for API testing
+response-body.data.url equals: https://example.com/project1
+response-body.data.githubUrl equals: https://github.com/testuser/project1
+response-body.data.color equals: #FF5733
+response-body.data.customFields.priority equals: high
+

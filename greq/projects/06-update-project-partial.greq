@@ -1,0 +1,21 @@
+extends: project-template.greq
+depends-on: 05-update-project-1.greq
+set-environment.PROJECT_1_ID: $(dependency.response-body.data.id)
+
+====
+
+PATCH /api/project/$(environment.PROJECT_1_ID) HTTP/1.1
+authorization: Bearer $(environment.GROODO_AUTH_TOKEN)
+
+{
+  "description": "Partially updated description only"
+}
+
+====
+
+status-code equals: 200
+response-body.result equals: success
+response-body.data.id equals: $(environment.PROJECT_1_ID)
+response-body.data.name equals: Updated Project 1
+response-body.data.description equals: Partially updated description only
+

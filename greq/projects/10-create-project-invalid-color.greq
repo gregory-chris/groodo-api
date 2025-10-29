@@ -1,0 +1,20 @@
+extends: project-template.greq
+depends-on: ../users/06-signin-success-confirmed.greq
+set-environment.GROODO_AUTH_TOKEN: $(dependency.response-body.data.token)
+
+====
+
+POST /api/projects HTTP/1.1
+authorization: Bearer $(dependency.response-body.data.token)
+
+{
+  "name": "Project with Invalid Color",
+  "color": "red"
+}
+
+====
+
+status-code equals: 400
+response-body.result equals: failure
+response-body.error exists: true
+
