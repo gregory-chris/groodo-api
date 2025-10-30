@@ -245,6 +245,25 @@ class TaskController
             if (isset($data['order'])) {
                 $updateData['order_index'] = intval($data['order']);
             }
+            
+            if (isset($data['date'])) {
+                // Validate date format
+                $dateValidation = $this->validationService->validateDate($data['date']);
+                if (!$dateValidation['valid']) {
+                    return $this->responseHelper->validationError($dateValidation['errors']);
+                }
+                
+                // Check if moving to a different date and validate daily task limit
+                if ($existingTask['date'] !== $data['date']) {
+                    $currentCount = $this->taskModel->getTasksCountForDate($userId, $data['date']);
+                    $limitValidation = $this->validationService->validateTasksPerDayLimit($currentCount);
+                    if (!$limitValidation['valid']) {
+                        return $this->responseHelper->validationError($limitValidation['errors']);
+                    }
+                }
+                
+                $updateData['date'] = $data['date'];
+            }
 
             // Update task
             $success = $this->taskModel->updateTask($taskId, $userId, $updateData);
