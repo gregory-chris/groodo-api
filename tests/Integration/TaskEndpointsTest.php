@@ -251,6 +251,36 @@ class TaskEndpointsTest extends ApiTestCase
         $this->assertStringContainsString('Task not found', $error);
     }
 
+    public function testUpdateTaskDate(): void
+    {
+        // Create a task
+        $response = $this->makeAuthenticatedRequest('POST', '/api/tasks', $this->userToken, [
+            'title' => 'Task to Update Date',
+            'description' => 'Original description',
+            'date' => '2025-10-28'
+        ]);
+        $taskData = $this->assertSuccessResponse($response, 201);
+        $taskId = $taskData['id'];
+        
+        // Update the task's date using PATCH
+        $updateData = [
+            'date' => '2025-10-29',
+            'order' => 0
+        ];
+        
+        $response = $this->makeAuthenticatedRequest('PATCH', "/api/task/{$taskId}", $this->userToken, $updateData);
+        $data = $this->assertSuccessResponse($response);
+        
+        $this->assertEquals($taskId, $data['id']);
+        $this->assertEquals('Task to Update Date', $data['title']);
+        $this->assertEquals('Original description', $data['description']);
+        $this->assertEquals('2025-10-29', $data['date']);
+        $this->assertEquals(0, $data['order']);
+        
+        // Verify updated timestamp changed
+        $this->assertNotEquals($taskData['updatedAt'], $data['updatedAt']);
+    }
+
     public function testDeleteTask(): void
     {
         // Create a task
