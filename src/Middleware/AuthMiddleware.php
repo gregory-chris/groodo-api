@@ -51,7 +51,52 @@ class AuthMiddleware implements MiddlewareInterface
             return $this->responseHelper->error('Invalid authorization header format', 403);
         }
 
-        // Validate JWT token
+        // Check if test token is enabled and matches
+        $testTokenEnabled = filter_var($_ENV['AUTH_TOKEN_FOR_TESTS_ENABLED'] ?? 'false', FILTER_VALIDATE_BOOLEAN);
+        $testToken = $_ENV['AUTH_TOKEN_FOR_TESTS'] ?? null;
+
+        if ($testTokenEnabled && $testToken !== null && $token === $testToken) {
+            $this->logger->info('Test token authentication enabled and token matched');
+            
+            // Decode token to get user_id (test token is still a valid JWT)
+            $validation = $this->jwtService->validateToken($token);
+            
+            if ($validation && $validation['valid']) {
+                $userId = $validation['user_id'];
+                
+                // Try to get user from database, but don't fail if not found (for testing)
+                $user = $this->userModel->findById($userId);
+                
+                // If user doesn't exist, create a minimal user object for testing
+                if ($user === null) {
+                    $this->logger->debug('Test user not found in database, using minimal user object', ['user_id' => $userId]);
+                    $user = [
+                        'id' => $userId,
+                        'email' => 'test@example.com',
+                        'full_name' => 'Test User',
+                        'is_email_confirmed' => 1,
+                        'auth_token' => $token,
+                        'auth_expires_at' => null,
+                        'created_at' => date('c'),
+                        'updated_at' => date('c'),
+                    ];
+                }
+                
+                // Add user data to request attributes
+                $request = $request->withAttribute('user_id', $userId);
+                $request = $request->withAttribute('user', $user);
+                $request = $request->withAttribute('auth_token', $token);
+
+                $this->logger->debug('Test token authentication successful', [
+                    'user_id' => $userId,
+                    'email' => $user['email']
+                ]);
+
+                return $handler->handle($request);
+            }
+        }
+
+        // Normal JWT token validation
         $validation = $this->jwtService->validateToken($token);
         
         if (!$validation || !$validation['valid']) {
