@@ -1,11 +1,9 @@
 extends: project-template.greq
-depends-on: ../users/06-signin-success-confirmed.greq
-set-environment.GROODO_AUTH_TOKEN: $(dependency.response-body.data.token)
+-- depends-on: 00-delete-project-1
 
 ====
 
 POST /api/projects HTTP/1.1
-authorization: Bearer $(dependency.response-body.data.token)
 
 {
   "name": "Test Project 1",

@@ -1,0 +1,10 @@
+extends: project-template.greq
+
+====
+
+DELETE /api/project/12322 HTTP/1.1
+
+====
+
+status-code equals: 200
+or status-code equals: 404
