@@ -4,13 +4,11 @@ depends-on: 02-create-project-2.greq
 ====
 
 GET /api/projects HTTP/1.1
-authorization: Bearer $(environment.GROODO_AUTH_TOKEN)
 
 ====
 
 status-code equals: 200
 response-body.result equals: success
 response-body.data exists: true
-response-body.data is-array: true
-response-body.data.length greater-than: 0
+response-body.data[0].userId equals: 1
 

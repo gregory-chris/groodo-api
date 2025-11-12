@@ -1,11 +1,8 @@
 extends: project-template.greq
-depends-on: ../users/06-signin-success-confirmed.greq
-set-environment.GROODO_AUTH_TOKEN: $(dependency.response-body.data.token)
 
 ====
 
 POST /api/projects HTTP/1.1
-authorization: Bearer $(dependency.response-body.data.token)
 
 {
   "name": "Minimal Project",

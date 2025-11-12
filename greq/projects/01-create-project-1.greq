@@ -1,5 +1,4 @@
 extends: project-template.greq
--- depends-on: 00-delete-project-1
 
 ====
 
