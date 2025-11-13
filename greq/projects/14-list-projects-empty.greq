@@ -4,7 +4,6 @@ depends-on: 13-delete-project-1.greq
 ====
 
 GET /api/projects HTTP/1.1
-authorization: Bearer $(environment.GROODO_AUTH_TOKEN)
 
 ====
 

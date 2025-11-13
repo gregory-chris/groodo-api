@@ -4,14 +4,13 @@ set-environment.PROJECT_2_ID: $(dependency.response-body.data.id)
 
 ====
 
-DELETE /api/project/$(environment.PROJECT_2_ID) HTTP/1.1
-authorization: Bearer $(environment.GROODO_AUTH_TOKEN)
+DELETE /api/project/$(dependency.response-body.data.id) HTTP/1.1
 
 ====
 
 status-code equals: 200
 response-body.result equals: success
 response-body.data.message contains: deleted successfully
-response-body.data.deletedProject.id equals: $(environment.PROJECT_2_ID)
+response-body.data.deletedProject.id equals: $(dependency.response-body.data.id)
 response-body.data.deletedProject.name equals: Minimal Project
 

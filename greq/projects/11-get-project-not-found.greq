@@ -1,11 +1,8 @@
 extends: project-template.greq
-depends-on: ../users/06-signin-success-confirmed.greq
-set-environment.GROODO_AUTH_TOKEN: $(dependency.response-body.data.token)
 
 ====
 
 GET /api/project/99999 HTTP/1.1
-authorization: Bearer $(environment.GROODO_AUTH_TOKEN)
 
 ====
 
