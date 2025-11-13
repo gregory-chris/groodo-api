@@ -4,7 +4,8 @@ is-http: true
 ====
 
 GET /api/projects HTTP/1.1
-host: localhost:8000
+host: groodo-api.greq.me
+authorization: Bearer [take from .env "AUTH_TOKEN_FOR_TESTS"]
 content-type: application/json
 
 ====
