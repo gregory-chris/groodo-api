@@ -131,13 +131,16 @@ class ProjectController
 
         try {
             $userId = $request->getAttribute('user_id');
-            $projectId = (int)$request->getAttribute('projectId');
+            $projectIdParam = $request->getAttribute('projectId');
 
-            // Validate project ID
-            if (!$this->validationService->isValidId((string)$projectId)) {
-                $this->logger->warning('Invalid project ID provided', ['project_id' => $projectId]);
+            // Validate project ID (may be string like "01")
+            if (!$this->validationService->isValidId($projectIdParam)) {
+                $this->logger->warning('Invalid project ID provided', ['project_id' => $projectIdParam]);
                 return $this->responseHelper->error('Invalid project ID', 400);
             }
+
+            // Convert to integer for database operations
+            $projectId = (int)$projectIdParam;
 
             // Find project by ID and user ID
             $project = $this->projectModel->findByIdAndUserId($projectId, $userId);
