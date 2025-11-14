@@ -35,7 +35,8 @@ class Migration
             
             if ($tasksTableExists) {
                 // Update existing tasks table to add project_id and parent_id if missing
-                $this->updateTasksTableForProjects();
+                // Use private method since we're already in a transaction
+                $this->updateTasksTableColumns();
             } else {
                 // Create tasks table (will include project_id and parent_id)
                 $this->createTasksTable();
@@ -131,29 +132,7 @@ class Migration
 
         try {
             $this->database->beginTransaction();
-
-            // Check if columns already exist
-            $checkColumns = $this->database->query("PRAGMA table_info(tasks)");
-            $columns = $checkColumns->fetchAll(PDO::FETCH_ASSOC);
-            $columnNames = array_column($columns, 'name');
-
-            if (!in_array('project_id', $columnNames)) {
-                $this->database->query("ALTER TABLE tasks ADD COLUMN project_id INTEGER");
-                $this->logger->info('Added project_id column to tasks table');
-            }
-
-            if (!in_array('parent_id', $columnNames)) {
-                $this->database->query("ALTER TABLE tasks ADD COLUMN parent_id INTEGER");
-                $this->logger->info('Added parent_id column to tasks table');
-            }
-
-            // Add foreign key constraints (SQLite doesn't support adding FKs to existing tables via ALTER TABLE,
-            // so we'll need to recreate the table if foreign keys are needed)
-            // For now, we'll rely on application-level constraints
-
-            // Add indexes if they don't exist
-            $this->addProjectIndexes();
-
+            $this->updateTasksTableColumns();
             $this->database->commit();
             $this->logger->info('Tasks table updated successfully for projects support');
         } catch (\Exception $e) {
@@ -164,6 +143,35 @@ class Migration
             ]);
             throw $e;
         }
+    }
+
+    /**
+     * Update tasks table columns without transaction management
+     * Called from createTables() which already manages transactions
+     */
+    private function updateTasksTableColumns(): void
+    {
+        // Check if columns already exist
+        $checkColumns = $this->database->query("PRAGMA table_info(tasks)");
+        $columns = $checkColumns->fetchAll(PDO::FETCH_ASSOC);
+        $columnNames = array_column($columns, 'name');
+
+        if (!in_array('project_id', $columnNames)) {
+            $this->database->query("ALTER TABLE tasks ADD COLUMN project_id INTEGER");
+            $this->logger->info('Added project_id column to tasks table');
+        }
+
+        if (!in_array('parent_id', $columnNames)) {
+            $this->database->query("ALTER TABLE tasks ADD COLUMN parent_id INTEGER");
+            $this->logger->info('Added parent_id column to tasks table');
+        }
+
+        // Add foreign key constraints (SQLite doesn't support adding FKs to existing tables via ALTER TABLE,
+        // so we'll need to recreate the table if foreign keys are needed)
+        // For now, we'll rely on application-level constraints
+
+        // Add indexes if they don't exist
+        $this->addProjectIndexes();
     }
 
     private function addProjectIndexes(): void
