@@ -30,10 +30,18 @@ class Migration
             // Create projects table
             $this->createProjectsTable();
             
-            // Create tasks table
-            $this->createTasksTable();
+            // Check if tasks table already exists
+            $tasksTableExists = $this->tableExists('tasks');
             
-            // Create indexes
+            if ($tasksTableExists) {
+                // Update existing tasks table to add project_id and parent_id if missing
+                $this->updateTasksTableForProjects();
+            } else {
+                // Create tasks table (will include project_id and parent_id)
+                $this->createTasksTable();
+            }
+            
+            // Create indexes (will check for column existence)
             $this->createIndexes();
 
             $this->database->commit();
@@ -175,6 +183,7 @@ class Migration
 
     private function createIndexes(): void
     {
+        // Always create these indexes
         $indexes = [
             "CREATE INDEX IF NOT EXISTS idx_users_email ON users (email)",
             "CREATE INDEX IF NOT EXISTS idx_users_auth_token ON users (auth_token)",
@@ -184,10 +193,20 @@ class Migration
             "CREATE INDEX IF NOT EXISTS idx_tasks_user_id ON tasks (user_id)",
             "CREATE INDEX IF NOT EXISTS idx_tasks_date ON tasks (date)",
             "CREATE INDEX IF NOT EXISTS idx_tasks_user_date_order ON tasks (user_id, date, order_index)",
-            "CREATE INDEX IF NOT EXISTS idx_tasks_project_id ON tasks (project_id)",
-            "CREATE INDEX IF NOT EXISTS idx_tasks_parent_id ON tasks (parent_id)",
-            "CREATE INDEX IF NOT EXISTS idx_tasks_user_project_order ON tasks (user_id, project_id, order_index)",
         ];
+
+        // Check if tasks table has project_id and parent_id columns before creating indexes
+        $tasksColumns = $this->getTableColumns('tasks');
+        
+        if (in_array('project_id', $tasksColumns)) {
+            $indexes[] = "CREATE INDEX IF NOT EXISTS idx_tasks_project_id ON tasks (project_id)";
+            // Create composite index if project_id exists
+            $indexes[] = "CREATE INDEX IF NOT EXISTS idx_tasks_user_project_order ON tasks (user_id, project_id, order_index)";
+        }
+        
+        if (in_array('parent_id', $tasksColumns)) {
+            $indexes[] = "CREATE INDEX IF NOT EXISTS idx_tasks_parent_id ON tasks (parent_id)";
+        }
 
         foreach ($indexes as $sql) {
             $this->database->query($sql);
@@ -223,5 +242,44 @@ class Migration
         $this->logger->warning('Resetting database - dropping and recreating tables');
         $this->dropTables();
         $this->createTables();
+    }
+
+    /**
+     * Check if a table exists in the database
+     */
+    private function tableExists(string $tableName): bool
+    {
+        $stmt = $this->database->query(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+            [$tableName]
+        );
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $result !== false;
+    }
+
+    /**
+     * Get column names for a table
+     */
+    private function getTableColumns(string $tableName): array
+    {
+        try {
+            // Sanitize table name - only allow alphanumeric and underscore
+            if (!preg_match('/^[a-zA-Z0-9_]+$/', $tableName)) {
+                $this->logger->warning('Invalid table name for column check', ['table' => $tableName]);
+                return [];
+            }
+            
+            // PRAGMA doesn't support parameterized queries, but we've validated the input
+            $stmt = $this->database->query("PRAGMA table_info({$tableName})");
+            $columns = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            return array_column($columns, 'name');
+        } catch (\Exception $e) {
+            // Table doesn't exist or error occurred
+            $this->logger->debug('Could not get columns for table', [
+                'table' => $tableName,
+                'error' => $e->getMessage()
+            ]);
+            return [];
+        }
     }
 }
