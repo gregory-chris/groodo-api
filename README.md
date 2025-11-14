@@ -6,7 +6,9 @@ A secure RESTful API for calendar-based todo task management. GrooDo helps users
 
 GrooDo is a calendar-based todo application that allows users to:
 - **Organize tasks by date** - View and manage tasks in a calendar format
+- **Project organization** - Group tasks into projects for better organization
 - **Drag-and-drop ordering** - Easily reorder tasks within each day
+- **Task hierarchies** - Create parent-child relationships between tasks
 - **User accounts** - Secure registration and authentication system
 - **Email notifications** - Account confirmation and password reset emails
 - **Daily task limits** - Maximum 50 tasks per day to encourage focus
@@ -25,12 +27,27 @@ GrooDo is a calendar-based todo application that allows users to:
 ### Task Management
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/tasks` | GET | List user's tasks (with date filtering) |
+| `/api/tasks` | GET | List user's tasks (with date/project filtering) |
 | `/api/tasks` | POST | Create a new task |
 | `/api/task/:id` | GET | Get specific task details |
 | `/api/task/:id` | PUT | Update task (title, description, completed) |
 | `/api/task/:id` | DELETE | Delete task |
 | `/api/task/:id/updateOrder` | POST | Move task to different position/date |
+| `/api/task/:id/assign-project` | POST | Assign task to a project |
+| `/api/task/:id/unassign-project` | POST | Remove task from project |
+| `/api/task/:id/assign-parent` | POST | Assign task to a parent task |
+| `/api/task/:id/unassign-parent` | POST | Remove task from parent |
+
+### Project Management
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/projects` | GET | List user's projects |
+| `/api/projects` | POST | Create a new project |
+| `/api/project/:id` | GET | Get specific project details |
+| `/api/project/:id` | PUT | Update project (full update) |
+| `/api/project/:id` | PATCH | Update project (partial update) |
+| `/api/project/:id` | DELETE | Delete project |
+| `/api/project/:id/tasks` | GET | Get all tasks for a project |
 
 ### System
 | Endpoint | Method | Description |
@@ -41,7 +58,9 @@ GrooDo is a calendar-based todo application that allows users to:
 
 - **🔐 JWT Authentication** - Secure, stateless authentication
 - **📅 Date-based Organization** - Tasks organized by calendar dates
+- **📁 Project Management** - Organize tasks into projects with custom fields
 - **🔄 Drag-and-Drop Support** - API endpoints for task reordering
+- **🌳 Task Hierarchies** - Create parent-child relationships between tasks
 - **👤 User Management** - Complete user lifecycle management
 - **🛡️ Security** - Input validation, rate limiting, CORS protection
 - **📧 Email Integration** - Account confirmation and password reset

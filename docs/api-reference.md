@@ -22,6 +22,7 @@ The GrooDo API is a RESTful web service for managing calendar-based todo tasks. 
 - [Health Check](#health-check)
 - [User Management](#user-management)
 - [Task Management](#task-management)
+- [Project Management](#project-management)
 - [Error Handling](#error-handling)
 - [Rate Limits](#rate-limits)
 
@@ -239,13 +240,14 @@ Retrieve tasks for the authenticated user with optional filtering and pagination
 
 #### Query Parameters
 - `from` (optional): Start date filter (ISO 8601 format: YYYY-MM-DD)
-- `until` (optional): End date filter (ISO 8601 format: YYYY-MM-DD)  
+- `until` (optional): End date filter (ISO 8601 format: YYYY-MM-DD)
+- `projectId` (optional): Filter tasks by project ID (integer)
 - `limit` (optional): Number of tasks to return (default: 100, max: 100)
 - `offset` (optional): Number of tasks to skip (default: 0)
 
 #### Example Request
 ```
-GET /api/tasks?from=2025-09-28&until=2025-09-30&limit=10&offset=0
+GET /api/tasks?from=2025-09-28&until=2025-09-30&projectId=5&limit=10&offset=0
 ```
 
 #### Response (200 OK)
@@ -261,6 +263,8 @@ GET /api/tasks?from=2025-09-28&until=2025-09-30&limit=10&offset=0
       "date": "2025-09-28",
       "order": 1,
       "completed": false,
+      "projectId": 5,
+      "parentId": null,
       "createdAt": "2025-09-28T08:00:00+00:00",
       "updatedAt": "2025-09-28T08:00:00+00:00"
     }
@@ -305,6 +309,8 @@ Create a new task for the authenticated user.
     "date": "2025-09-28",
     "order": 1,
     "completed": false,
+    "projectId": null,
+    "parentId": null,
     "createdAt": "2025-09-28T08:00:00+00:00",
     "updatedAt": "2025-09-28T08:00:00+00:00"
   }
@@ -337,6 +343,8 @@ Retrieve a specific task by ID (must belong to authenticated user).
     "date": "2025-09-28",
     "order": 1,
     "completed": false,
+    "projectId": 5,
+    "parentId": null,
     "createdAt": "2025-09-28T08:00:00+00:00",
     "updatedAt": "2025-09-28T08:00:00+00:00"
   }
@@ -386,6 +394,8 @@ Update an existing task (must belong to authenticated user).
     "date": "2025-09-28",
     "order": 1,
     "completed": true,
+    "projectId": 5,
+    "parentId": null,
     "createdAt": "2025-09-28T08:00:00+00:00",
     "updatedAt": "2025-09-28T08:15:00+00:00"
   }
@@ -460,6 +470,8 @@ Move a task to a different position or date. Supports drag-and-drop functionalit
     "date": "2025-09-28",
     "order": 2,
     "completed": false,
+    "projectId": 5,
+    "parentId": null,
     "createdAt": "2025-09-28T08:00:00+00:00",
     "updatedAt": "2025-09-28T08:20:00+00:00"
   }
@@ -469,6 +481,470 @@ Move a task to a different position or date. Supports drag-and-drop functionalit
 #### Error Responses
 - **400**: Invalid task ID, date format, or after task ID
 - **404**: Task not found, doesn't belong to user, or after task not found
+
+---
+
+### Assign Task to Project
+Assign a task to a project. If the task has child tasks, they will also be assigned to the same project.
+
+**Endpoint**: `POST /api/task/{taskId}/assign-project`  
+**Authentication**: Required
+
+#### Path Parameters
+- `taskId`: Integer ID of the task
+
+#### Request Body
+```json
+{
+  "projectId": 5
+}
+```
+
+#### Validation Rules
+- **projectId**: Optional, integer ID of project (null to unassign)
+- Project must belong to authenticated user
+
+#### Response (200 OK)
+```json
+{
+  "result": "success",
+  "data": {
+    "id": 1,
+    "userId": 1,
+    "title": "Task title",
+    "description": "Task description",
+    "date": "2025-09-28",
+    "order": 1,
+    "completed": false,
+    "projectId": 5,
+    "parentId": null,
+    "createdAt": "2025-09-28T08:00:00+00:00",
+    "updatedAt": "2025-09-28T08:25:00+00:00"
+  }
+}
+```
+
+#### Error Responses
+- **400**: Invalid task ID, project ID, or project not found
+- **404**: Task not found or doesn't belong to user
+
+---
+
+### Unassign Task from Project
+Remove a task from its project. Child tasks will also be unassigned. The task's parent relationship will be removed.
+
+**Endpoint**: `POST /api/task/{taskId}/unassign-project`  
+**Authentication**: Required
+
+#### Path Parameters
+- `taskId`: Integer ID of the task
+
+#### Response (200 OK)
+```json
+{
+  "result": "success",
+  "data": {
+    "id": 1,
+    "userId": 1,
+    "title": "Task title",
+    "description": "Task description",
+    "date": "2025-09-28",
+    "order": 1,
+    "completed": false,
+    "projectId": null,
+    "parentId": null,
+    "createdAt": "2025-09-28T08:00:00+00:00",
+    "updatedAt": "2025-09-28T08:30:00+00:00"
+  }
+}
+```
+
+#### Error Responses
+- **400**: Invalid task ID format
+- **404**: Task not found or doesn't belong to user
+
+---
+
+### Assign Task to Parent
+Assign a task to a parent task, creating a hierarchy. The parent task must belong to a project, and the child task will inherit the parent's project.
+
+**Endpoint**: `POST /api/task/{taskId}/assign-parent`  
+**Authentication**: Required
+
+#### Path Parameters
+- `taskId`: Integer ID of the task (child)
+
+#### Request Body
+```json
+{
+  "parentId": 10
+}
+```
+
+#### Validation Rules
+- **parentId**: Optional, integer ID of parent task (null to unassign)
+- Parent task must belong to authenticated user
+- Parent task must belong to a project
+- Child task will inherit parent's project
+
+#### Response (200 OK)
+```json
+{
+  "result": "success",
+  "data": {
+    "id": 1,
+    "userId": 1,
+    "title": "Child task",
+    "description": "Task description",
+    "date": "2025-09-28",
+    "order": 1,
+    "completed": false,
+    "projectId": 5,
+    "parentId": 10,
+    "createdAt": "2025-09-28T08:00:00+00:00",
+    "updatedAt": "2025-09-28T08:35:00+00:00"
+  }
+}
+```
+
+#### Error Responses
+- **400**: Invalid task ID, parent ID, parent not found, or parent doesn't belong to a project
+- **404**: Task not found or doesn't belong to user
+
+---
+
+### Unassign Task from Parent
+Remove a task from its parent, breaking the hierarchy relationship.
+
+**Endpoint**: `POST /api/task/{taskId}/unassign-parent`  
+**Authentication**: Required
+
+#### Path Parameters
+- `taskId`: Integer ID of the task
+
+#### Response (200 OK)
+```json
+{
+  "result": "success",
+  "data": {
+    "id": 1,
+    "userId": 1,
+    "title": "Task title",
+    "description": "Task description",
+    "date": "2025-09-28",
+    "order": 1,
+    "completed": false,
+    "projectId": 5,
+    "parentId": null,
+    "createdAt": "2025-09-28T08:00:00+00:00",
+    "updatedAt": "2025-09-28T08:40:00+00:00"
+  }
+}
+```
+
+#### Error Responses
+- **400**: Invalid task ID format
+- **404**: Task not found or doesn't belong to user
+
+---
+
+## Project Management
+
+All project endpoints require authentication. Projects are private to each user.
+
+### List Projects
+Retrieve projects for the authenticated user with pagination.
+
+**Endpoint**: `GET /api/projects`  
+**Authentication**: Required
+
+#### Query Parameters
+- `limit` (optional): Number of projects to return (default: 100, max: 100)
+- `offset` (optional): Number of projects to skip (default: 0)
+
+#### Example Request
+```
+GET /api/projects?limit=10&offset=0
+```
+
+#### Response (200 OK)
+```json
+{
+  "result": "success",
+  "data": [
+    {
+      "id": 5,
+      "userId": 1,
+      "name": "Website Redesign",
+      "description": "Complete redesign of company website",
+      "url": "https://example.com/project",
+      "githubUrl": "https://github.com/user/project",
+      "color": "#FF5733",
+      "customFields": {
+        "priority": "high",
+        "status": "active",
+        "team": "frontend"
+      },
+      "createdAt": "2025-09-01T08:00:00+00:00",
+      "updatedAt": "2025-09-28T08:00:00+00:00"
+    }
+  ]
+}
+```
+
+---
+
+### Create Project
+Create a new project for the authenticated user.
+
+**Endpoint**: `POST /api/projects`  
+**Authentication**: Required
+
+#### Request Body
+```json
+{
+  "name": "Website Redesign",
+  "description": "Complete redesign of company website",
+  "url": "https://example.com/project",
+  "githubUrl": "https://github.com/user/project",
+  "color": "#FF5733",
+  "customFields": {
+    "priority": "high",
+    "status": "active",
+    "team": "frontend"
+  }
+}
+```
+
+#### Validation Rules
+- **name**: Required, maximum 256 characters, cannot be empty or whitespace only
+- **description**: Optional, maximum 2048 characters
+- **url**: Optional, must be valid URL format if provided
+- **githubUrl**: Optional, must be valid URL format if provided
+- **color**: Optional, hex color code format (#RRGGBB)
+- **customFields**: Optional, JSON object with key-value pairs
+
+#### Response (201 Created)
+```json
+{
+  "result": "success",
+  "data": {
+    "id": 5,
+    "userId": 1,
+    "name": "Website Redesign",
+    "description": "Complete redesign of company website",
+    "url": "https://example.com/project",
+    "githubUrl": "https://github.com/user/project",
+    "color": "#FF5733",
+    "customFields": {
+      "priority": "high",
+      "status": "active",
+      "team": "frontend"
+    },
+    "createdAt": "2025-09-01T08:00:00+00:00",
+    "updatedAt": "2025-09-01T08:00:00+00:00"
+  }
+}
+```
+
+#### Error Responses
+- **400**: Validation errors
+
+---
+
+### Get Single Project
+Retrieve a specific project by ID (must belong to authenticated user).
+
+**Endpoint**: `GET /api/project/{projectId}`  
+**Authentication**: Required
+
+#### Path Parameters
+- `projectId`: Integer ID of the project
+
+#### Response (200 OK)
+```json
+{
+  "result": "success",
+  "data": {
+    "id": 5,
+    "userId": 1,
+    "name": "Website Redesign",
+    "description": "Complete redesign of company website",
+    "url": "https://example.com/project",
+    "githubUrl": "https://github.com/user/project",
+    "color": "#FF5733",
+    "customFields": {
+      "priority": "high",
+      "status": "active",
+      "team": "frontend"
+    },
+    "createdAt": "2025-09-01T08:00:00+00:00",
+    "updatedAt": "2025-09-28T08:00:00+00:00"
+  }
+}
+```
+
+#### Error Responses
+- **400**: Invalid project ID format
+- **404**: Project not found or doesn't belong to user
+
+---
+
+### Update Project
+Update an existing project (must belong to authenticated user). Supports both full (PUT) and partial (PATCH) updates.
+
+**Endpoint**: `PUT /api/project/{projectId}` or `PATCH /api/project/{projectId}`  
+**Authentication**: Required
+
+#### Path Parameters
+- `projectId`: Integer ID of the project
+
+#### Request Body (PUT - Full Update)
+```json
+{
+  "name": "Updated Project Name",
+  "description": "Updated description",
+  "url": "https://example.com/updated",
+  "githubUrl": "https://github.com/user/updated",
+  "color": "#00FF00",
+  "customFields": {
+    "priority": "low",
+    "status": "completed"
+  }
+}
+```
+
+#### Request Body (PATCH - Partial Update)
+```json
+{
+  "name": "Updated Project Name",
+  "color": "#00FF00"
+}
+```
+
+#### Validation Rules
+- **name**: Optional, maximum 256 characters, cannot be empty or whitespace only
+- **description**: Optional, maximum 2048 characters
+- **url**: Optional, must be valid URL format if provided
+- **githubUrl**: Optional, must be valid URL format if provided
+- **color**: Optional, hex color code format (#RRGGBB)
+- **customFields**: Optional, JSON object with key-value pairs
+
+**Note**: Only provided fields will be updated. Omitted fields remain unchanged.
+
+#### Response (200 OK)
+```json
+{
+  "result": "success",
+  "data": {
+    "id": 5,
+    "userId": 1,
+    "name": "Updated Project Name",
+    "description": "Updated description",
+    "url": "https://example.com/updated",
+    "githubUrl": "https://github.com/user/updated",
+    "color": "#00FF00",
+    "customFields": {
+      "priority": "low",
+      "status": "completed"
+    },
+    "createdAt": "2025-09-01T08:00:00+00:00",
+    "updatedAt": "2025-09-28T09:00:00+00:00"
+  }
+}
+```
+
+#### Error Responses
+- **400**: Invalid project ID or validation errors
+- **404**: Project not found or doesn't belong to user
+
+---
+
+### Delete Project
+Delete a project (must belong to authenticated user). All tasks associated with the project will be automatically unassigned (cascade behavior).
+
+**Endpoint**: `DELETE /api/project/{projectId}`  
+**Authentication**: Required
+
+#### Path Parameters
+- `projectId`: Integer ID of the project
+
+#### Response (200 OK)
+```json
+{
+  "result": "success",
+  "data": {
+    "message": "Project deleted successfully",
+    "deletedProject": {
+      "id": 5,
+      "name": "Website Redesign"
+    }
+  }
+}
+```
+
+#### Error Responses
+- **400**: Invalid project ID format
+- **404**: Project not found or doesn't belong to user
+
+---
+
+### Get Project Tasks
+Retrieve all tasks associated with a specific project.
+
+**Endpoint**: `GET /api/project/{projectId}/tasks`  
+**Authentication**: Required
+
+#### Path Parameters
+- `projectId`: Integer ID of the project
+
+#### Query Parameters
+- `limit` (optional): Number of tasks to return (default: 100, max: 100)
+- `offset` (optional): Number of tasks to skip (default: 0)
+
+#### Example Request
+```
+GET /api/project/5/tasks?limit=20&offset=0
+```
+
+#### Response (200 OK)
+```json
+{
+  "result": "success",
+  "data": [
+    {
+      "id": 1,
+      "userId": 1,
+      "title": "Design homepage",
+      "description": "Create new homepage design",
+      "date": "2025-09-28",
+      "order": 1,
+      "completed": false,
+      "projectId": 5,
+      "parentId": null,
+      "createdAt": "2025-09-28T08:00:00+00:00",
+      "updatedAt": "2025-09-28T08:00:00+00:00"
+    },
+    {
+      "id": 2,
+      "userId": 1,
+      "title": "Implement responsive layout",
+      "description": "Make design responsive",
+      "date": "2025-09-29",
+      "order": 1,
+      "completed": false,
+      "projectId": 5,
+      "parentId": 1,
+      "createdAt": "2025-09-28T08:00:00+00:00",
+      "updatedAt": "2025-09-28T08:00:00+00:00"
+    }
+  ]
+}
+```
+
+#### Error Responses
+- **400**: Invalid project ID format
+- **404**: Project not found or doesn't belong to user
 
 ---
 
@@ -521,11 +997,17 @@ Move a task to a different position or date. Supports drag-and-drop functionalit
 - `"Password must be at least 8 characters long"`
 - `"Task title is required"`
 - `"Maximum 50 tasks allowed per day"`
+- `"Project name is required"`
+- `"Project name is too long (maximum 256 characters)"`
+- `"Invalid URL format"`
+- `"Invalid color format"`
 
 #### Resource Errors
 - `"Task not found"`
+- `"Project not found"`
 - `"Email already exists"`
 - `"User not found"`
+- `"Parent task must belong to a project"`
 
 ---
 
