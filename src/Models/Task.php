@@ -229,18 +229,79 @@ class Task extends BaseModel
         }
 
         // Get the next order index for this date and project
-        $orderIndex = $this->getNextOrderIndex($taskData['user_id'], $taskData['date'], $projectId);
+        // Date can be null when projectId is provided
+        $date = $taskData['date'] ?? null;
+        $orderIndex = $this->getNextOrderIndex($taskData['user_id'], $date, $projectId);
 
-        return $this->create([
+        // Build data array - include date even if null
+        // The database schema should allow NULL dates when projectId is provided
+        $createData = [
             'user_id' => $taskData['user_id'],
             'title' => $taskData['title'],
             'description' => $taskData['description'] ?? '',
-            'date' => $taskData['date'],
+            'date' => $date, // Can be null when projectId is provided
             'order_index' => $orderIndex,
             'completed' => $taskData['completed'] ?? 0,
             'project_id' => $projectId,
             'parent_id' => $parentId,
+        ];
+
+        return $this->createWithNullHandling($createData);
+    }
+
+    /**
+     * Create a task with special handling for NULL date values
+     * This method handles the case where date might be NULL and database column might have NOT NULL constraint
+     */
+    private function createWithNullHandling(array $data): int
+    {
+        $this->logger->debug("Creating task with null handling", [
+            'has_date' => isset($data['date']),
+            'date_value' => $data['date'] ?? null
         ]);
+
+        // Add timestamps
+        $now = date('c');
+        $data['created_at'] = $now;
+        $data['updated_at'] = $now;
+
+        // Build column list and values, handling NULL explicitly
+        $columns = [];
+        $placeholders = [];
+        $values = [];
+
+        foreach ($data as $column => $value) {
+            $columns[] = $column;
+            $placeholders[] = '?';
+            $values[] = $value;
+        }
+
+        $sql = "INSERT INTO {$this->table} (" . implode(', ', $columns) . ") VALUES (" . implode(', ', $placeholders) . ")";
+        
+        try {
+            $this->database->query($sql, $values);
+            $id = (int)$this->database->lastInsertId();
+
+            $this->logger->info("Created task with null handling", [
+                'id' => $id,
+                'has_date' => isset($data['date'])
+            ]);
+
+            return $id;
+        } catch (\PDOException $e) {
+            // If error is about NOT NULL constraint on date column, provide helpful error
+            if (strpos($e->getMessage(), 'NOT NULL constraint failed: tasks.date') !== false) {
+                $this->logger->error('Database schema needs update - date column has NOT NULL constraint', [
+                    'error' => $e->getMessage(),
+                    'hint' => 'Run: php migrate.php update-date-null'
+                ]);
+                throw new \RuntimeException(
+                    'Cannot create task without date when project is assigned. ' .
+                    'Please run migration to update database schema: php migrate.php update-date-null'
+                );
+            }
+            throw $e;
+        }
     }
 
     public function updateTask(int $id, int $userId, array $taskData): bool
@@ -415,11 +476,20 @@ class Task extends BaseModel
         ];
     }
 
-    private function getNextOrderIndex(int $userId, string $date, ?int $projectId = null): int
+    private function getNextOrderIndex(int $userId, ?string $date, ?int $projectId = null): int
     {
-        $sql = "SELECT MAX(order_index) as max_order FROM {$this->table} WHERE user_id = ? AND date = ?";
-        $params = [$userId, $date];
+        $sql = "SELECT MAX(order_index) as max_order FROM {$this->table} WHERE user_id = ?";
+        $params = [$userId];
 
+        // Handle date (can be NULL when projectId is provided)
+        if ($date !== null) {
+            $sql .= " AND date = ?";
+            $params[] = $date;
+        } else {
+            $sql .= " AND date IS NULL";
+        }
+
+        // Handle project_id
         if ($projectId !== null) {
             $sql .= " AND project_id = ?";
             $params[] = $projectId;

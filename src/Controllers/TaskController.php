@@ -124,24 +124,29 @@ class TaskController
             $userId = $request->getAttribute('user_id');
             $data = $request->getParsedBody();
 
-            // Validate input data
+            // Validate project and parent if provided (needed for date validation logic)
+            $projectId = isset($data['projectId']) && $data['projectId'] !== null ? (int)$data['projectId'] : null;
+            $parentId = isset($data['parentId']) && $data['parentId'] !== null ? (int)$data['parentId'] : null;
+
+            // Validate input data (validation checks if date is required based on projectId)
             $validation = $this->validationService->validateTaskCreation($data);
             if (!$validation['valid']) {
                 return $this->responseHelper->validationError($validation['errors']);
             }
 
-            $date = $data['date'];
+            // Date is optional when projectId is provided, required otherwise
+            $date = isset($data['date']) && $data['date'] !== '' ? $data['date'] : null;
 
-            // Check daily task limit
-            $currentCount = $this->taskModel->getTasksCountForDate($userId, $date);
-            $limitValidation = $this->validationService->validateTasksPerDayLimit($currentCount);
-            if (!$limitValidation['valid']) {
-                return $this->responseHelper->validationError($limitValidation['errors']);
+            // Check daily task limit only if date is provided
+            if ($date !== null) {
+                $currentCount = $this->taskModel->getTasksCountForDate($userId, $date);
+                $limitValidation = $this->validationService->validateTasksPerDayLimit($currentCount);
+                if (!$limitValidation['valid']) {
+                    return $this->responseHelper->validationError($limitValidation['errors']);
+                }
             }
 
             // Validate project and parent if provided
-            $projectId = isset($data['projectId']) ? (int)$data['projectId'] : null;
-            $parentId = isset($data['parentId']) ? (int)$data['parentId'] : null;
 
             if ($projectId !== null) {
                 $projectValidation = $this->validationService->validateProjectId($projectId, $userId, $this->projectModel);
@@ -162,7 +167,7 @@ class TaskController
                 'user_id' => $userId,
                 'title' => $this->validationService->sanitizeInput($data['title']),
                 'description' => isset($data['description']) ? $this->validationService->sanitizeInput($data['description']) : '',
-                'date' => $date,
+                'date' => $date, // Can be null if projectId is provided
                 'completed' => $data['completed'] ?? false,
                 'project_id' => $projectId,
                 'parent_id' => $parentId,

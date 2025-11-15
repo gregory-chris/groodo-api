@@ -29,6 +29,9 @@ try {
         case 'create':
             echo "Creating database tables...\n";
             $migration->createTables();
+            // Update tasks table to allow NULL dates if needed
+            echo "Updating tasks table to allow NULL dates...\n";
+            $migration->updateTasksTableAllowNullDate();
             echo "Database tables created successfully!\n";
             break;
             
@@ -44,11 +47,18 @@ try {
             echo "Database reset successfully!\n";
             break;
             
+        case 'update-date-null':
+            echo "Updating tasks table to allow NULL dates...\n";
+            $migration->updateTasksTableAllowNullDate();
+            echo "Tasks table updated successfully!\n";
+            break;
+            
         default:
-            echo "Usage: php migrate.php [create|drop|reset]\n";
-            echo "  create - Create database tables (default)\n";
-            echo "  drop   - Drop all tables\n";
-            echo "  reset  - Drop and recreate all tables\n";
+            echo "Usage: php migrate.php [create|drop|reset|update-date-null]\n";
+            echo "  create          - Create database tables (default)\n";
+            echo "  drop            - Drop all tables\n";
+            echo "  reset           - Drop and recreate all tables\n";
+            echo "  update-date-null - Update tasks table to allow NULL dates\n";
             exit(1);
     }
     

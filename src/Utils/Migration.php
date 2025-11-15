@@ -109,7 +109,7 @@ class Migration
                 user_id INTEGER NOT NULL,
                 title TEXT NOT NULL,
                 description TEXT,
-                date TEXT NOT NULL,
+                date TEXT,
                 order_index INTEGER NOT NULL,
                 completed INTEGER DEFAULT 0,
                 project_id INTEGER,
@@ -165,6 +165,11 @@ class Migration
             $this->database->query("ALTER TABLE tasks ADD COLUMN parent_id INTEGER");
             $this->logger->info('Added parent_id column to tasks table');
         }
+
+        // Note: SQLite doesn't support ALTER COLUMN to change NOT NULL to NULL
+        // The date column constraint will be handled at the application level
+        // For existing databases, NULL dates will work in most SQLite versions
+        // New databases will have date as nullable from the start
 
         // Add foreign key constraints (SQLite doesn't support adding FKs to existing tables via ALTER TABLE,
         // so we'll need to recreate the table if foreign keys are needed)
@@ -288,6 +293,144 @@ class Migration
                 'error' => $e->getMessage()
             ]);
             return [];
+        }
+    }
+
+    /**
+     * Check if date column allows NULL values
+     * Returns true if column allows NULL, false if NOT NULL constraint exists
+     */
+    private function dateColumnAllowsNull(): bool
+    {
+        try {
+            $stmt = $this->database->query("PRAGMA table_info(tasks)");
+            $columns = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            foreach ($columns as $column) {
+                if ($column['name'] === 'date') {
+                    // In SQLite, 'notnull' is 0 if NULL is allowed, 1 if NOT NULL
+                    return (int)$column['notnull'] === 0;
+                }
+            }
+            
+            return false; // Column not found, assume NOT NULL for safety
+        } catch (\Exception $e) {
+            $this->logger->error('Failed to check date column constraint', [
+                'error' => $e->getMessage()
+            ]);
+            return false; // Assume NOT NULL for safety
+        }
+    }
+
+    /**
+     * Update tasks table to allow NULL dates
+     * SQLite doesn't support ALTER COLUMN, so we need to recreate the table
+     */
+    public function updateTasksTableAllowNullDate(): void
+    {
+        $this->logger->info('Updating tasks table to allow NULL dates');
+
+        try {
+            // Check if date column already allows NULL
+            if ($this->dateColumnAllowsNull()) {
+                $this->logger->info('Date column already allows NULL, no update needed');
+                return;
+            }
+
+            $this->database->beginTransaction();
+
+            // Create temporary table with new schema (date allows NULL)
+            $this->database->query("
+                CREATE TABLE tasks_new (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    title TEXT NOT NULL,
+                    description TEXT,
+                    date TEXT,
+                    order_index INTEGER NOT NULL,
+                    completed INTEGER DEFAULT 0,
+                    project_id INTEGER,
+                    parent_id INTEGER,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+                    FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE,
+                    FOREIGN KEY (parent_id) REFERENCES tasks (id) ON DELETE CASCADE
+                )
+            ");
+
+            // Copy data from old table to new table
+            // Check which columns exist in the old table
+            $oldColumns = $this->getTableColumns('tasks');
+            $hasProjectId = in_array('project_id', $oldColumns);
+            $hasParentId = in_array('parent_id', $oldColumns);
+            
+            // Build column list for SELECT based on what exists
+            $selectColumns = [
+                'id',
+                'user_id',
+                'title',
+                'description',
+                'date',
+                'order_index',
+                'completed'
+            ];
+            
+            if ($hasProjectId) {
+                $selectColumns[] = 'project_id';
+            } else {
+                $selectColumns[] = 'NULL as project_id';
+            }
+            
+            if ($hasParentId) {
+                $selectColumns[] = 'parent_id';
+            } else {
+                $selectColumns[] = 'NULL as parent_id';
+            }
+            
+            // Handle timestamps - use COALESCE to provide defaults if NULL
+            $selectColumns[] = "COALESCE(created_at, datetime('now')) as created_at";
+            $selectColumns[] = "COALESCE(updated_at, datetime('now')) as updated_at";
+            
+            $selectSql = "SELECT " . implode(', ', $selectColumns) . " FROM tasks";
+            
+            $this->database->query("
+                INSERT INTO tasks_new (
+                    id, user_id, title, description, date, order_index, completed, 
+                    project_id, parent_id, created_at, updated_at
+                )
+                {$selectSql}
+            ");
+
+            // Drop old table
+            $this->database->query("DROP TABLE tasks");
+
+            // Rename new table
+            $this->database->query("ALTER TABLE tasks_new RENAME TO tasks");
+
+            // Recreate indexes (only task-related ones since other tables weren't affected)
+            $this->addProjectIndexes();
+            
+            // Recreate other task indexes
+            $taskIndexes = [
+                "CREATE INDEX IF NOT EXISTS idx_tasks_user_id ON tasks (user_id)",
+                "CREATE INDEX IF NOT EXISTS idx_tasks_date ON tasks (date)",
+                "CREATE INDEX IF NOT EXISTS idx_tasks_user_date_order ON tasks (user_id, date, order_index)",
+            ];
+            
+            foreach ($taskIndexes as $sql) {
+                $this->database->query($sql);
+            }
+
+            $this->database->commit();
+            $this->logger->info('Tasks table updated successfully to allow NULL dates');
+        } catch (\Exception $e) {
+            $this->database->rollback();
+            $this->logger->error('Failed to update tasks table for NULL dates', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            throw $e;
         }
     }
 }

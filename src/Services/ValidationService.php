@@ -172,6 +172,43 @@ class ValidationService
         ];
     }
 
+    /**
+     * Validate date format (optional - doesn't require date to be present)
+     */
+    public function validateOptionalDate(?string $date): array
+    {
+        $this->logger->debug('Validating optional date format');
+
+        $errors = [];
+
+        // If date is provided, validate format
+        if ($date !== null && $date !== '') {
+            // Validate ISO 8601 date format (YYYY-MM-DD)
+            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+                $errors[] = 'Date must be in ISO 8601 format (YYYY-MM-DD)';
+            } else {
+                // Validate that it's a real date
+                $dateParts = explode('-', $date);
+                if (count($dateParts) === 3) {
+                    $year = (int)$dateParts[0];
+                    $month = (int)$dateParts[1];
+                    $day = (int)$dateParts[2];
+                    
+                    if (!checkdate($month, $day, $year)) {
+                        $errors[] = 'Invalid date';
+                    }
+                } else {
+                    $errors[] = 'Invalid date format';
+                }
+            }
+        }
+
+        return [
+            'valid' => empty($errors),
+            'errors' => $errors
+        ];
+    }
+
     public function validateTasksPerDayLimit(int $currentCount): array
     {
         $this->logger->debug('Validating tasks per day limit', [
@@ -273,10 +310,21 @@ class ValidationService
             $allErrors = array_merge($allErrors, $descriptionValidation['errors']);
         }
 
-        // Validate date
-        $dateValidation = $this->validateDate($data['date'] ?? '');
-        if (!$dateValidation['valid']) {
-            $allErrors = array_merge($allErrors, $dateValidation['errors']);
+        // Validate date - required if projectId is not provided, optional if projectId is provided
+        $projectId = isset($data['projectId']) && $data['projectId'] !== null ? (int)$data['projectId'] : null;
+        
+        if ($projectId === null) {
+            // Date is required when no projectId is provided
+            $dateValidation = $this->validateDate($data['date'] ?? '');
+            if (!$dateValidation['valid']) {
+                $allErrors = array_merge($allErrors, $dateValidation['errors']);
+            }
+        } else {
+            // Date is optional when projectId is provided, but if provided, must be valid format
+            $dateValidation = $this->validateOptionalDate($data['date'] ?? null);
+            if (!$dateValidation['valid']) {
+                $allErrors = array_merge($allErrors, $dateValidation['errors']);
+            }
         }
 
         return [
