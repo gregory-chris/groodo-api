@@ -516,10 +516,21 @@ class Task extends BaseModel
         );
     }
 
-    private function shiftTasksDown(int $userId, string $date, int $fromOrderIndex, ?int $projectId = null): void
+    private function shiftTasksDown(int $userId, ?string $date, int $fromOrderIndex, ?int $projectId = null): void
     {
-        $sql = "UPDATE {$this->table} SET order_index = order_index + 1 WHERE user_id = ? AND date = ? AND order_index >= ?";
-        $params = [$userId, $date, $fromOrderIndex];
+        $sql = "UPDATE {$this->table} SET order_index = order_index + 1 WHERE user_id = ?";
+        $params = [$userId];
+
+        // Handle date (can be NULL when projectId is provided)
+        if ($date !== null) {
+            $sql .= " AND date = ?";
+            $params[] = $date;
+        } else {
+            $sql .= " AND date IS NULL";
+        }
+
+        $sql .= " AND order_index >= ?";
+        $params[] = $fromOrderIndex;
 
         if ($projectId !== null) {
             $sql .= " AND project_id = ?";
@@ -531,10 +542,21 @@ class Task extends BaseModel
         $this->database->query($sql, $params);
     }
 
-    private function reorderTasksAfterDeletion(int $userId, string $date, int $deletedOrderIndex, ?int $projectId = null): void
+    private function reorderTasksAfterDeletion(int $userId, ?string $date, int $deletedOrderIndex, ?int $projectId = null): void
     {
-        $sql = "UPDATE {$this->table} SET order_index = order_index - 1 WHERE user_id = ? AND date = ? AND order_index > ?";
-        $params = [$userId, $date, $deletedOrderIndex];
+        $sql = "UPDATE {$this->table} SET order_index = order_index - 1 WHERE user_id = ?";
+        $params = [$userId];
+
+        // Handle date (can be NULL when projectId is provided)
+        if ($date !== null) {
+            $sql .= " AND date = ?";
+            $params[] = $date;
+        } else {
+            $sql .= " AND date IS NULL";
+        }
+
+        $sql .= " AND order_index > ?";
+        $params[] = $deletedOrderIndex;
 
         if ($projectId !== null) {
             $sql .= " AND project_id = ?";
