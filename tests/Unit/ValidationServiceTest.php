@@ -149,11 +149,11 @@ class ValidationServiceTest extends TestCase
 
     public function testValidateTaskDescriptionTooLong(): void
     {
-        $longDescription = str_repeat('a', 2049);
+        $longDescription = str_repeat('a', 50001);
         $result = $this->validationService->validateTaskDescription($longDescription);
         
         $this->assertFalse($result['valid']);
-        $this->assertContains('Task description is too long (maximum 2048 characters)', $result['errors']);
+        $this->assertContains('Task description is too long (maximum 50000 characters)', $result['errors']);
     }
 
     public function testValidateTaskDescriptionNull(): void

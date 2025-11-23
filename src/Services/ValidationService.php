@@ -127,8 +127,8 @@ class ValidationService
 
         $errors = [];
 
-        if ($description !== null && strlen($description) > 2048) {
-            $errors[] = 'Task description is too long (maximum 2048 characters)';
+        if ($description !== null && strlen($description) > 50000) {
+            $errors[] = 'Task description is too long (maximum 50000 characters)';
         }
 
         return [
