@@ -43,7 +43,7 @@ class Task extends BaseModel
         return $result ?: null;
     }
 
-    public function findByUserId(int $userId, ?string $fromDate = null, ?string $untilDate = null, ?int $projectId = null, int $limit = 5000, int $offset = 0): array
+    public function findByUserId(int $userId, ?string $fromDate = null, ?string $untilDate = null, ?int $projectId = null, int $limit = 1000, int $offset = 0): array
     {
         $this->logger->debug("Finding tasks by user ID", [
             'user_id' => $userId,
@@ -92,7 +92,7 @@ class Task extends BaseModel
         return $results;
     }
 
-    public function findByProjectId(int $projectId, int $userId, int $limit = 5000, int $offset = 0): array
+    public function findByProjectId(int $projectId, int $userId, int $limit = 1000, int $offset = 0): array
     {
         $this->logger->debug("Finding tasks by project ID", [
             'project_id' => $projectId,

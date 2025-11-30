@@ -233,7 +233,7 @@ class ValidationService
         $this->logger->debug('Validating pagination parameters');
 
         $errors = [];
-        $validatedLimit = 100; // default
+        $validatedLimit = 1000; // default
         $validatedOffset = 0; // default
 
         if ($limit !== null) {
