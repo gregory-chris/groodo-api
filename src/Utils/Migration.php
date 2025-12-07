@@ -27,6 +27,9 @@ class Migration
             // Create users table
             $this->createUsersTable();
             
+            // Create user_sessions table
+            $this->createUserSessionsTable();
+            
             // Create projects table
             $this->createProjectsTable();
             
@@ -77,6 +80,39 @@ class Migration
 
         $this->database->query($sql);
         $this->logger->info('Created users table');
+    }
+
+    private function createUserSessionsTable(): void
+    {
+        $sql = "
+            CREATE TABLE IF NOT EXISTS user_sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                token TEXT NOT NULL,
+                expires_at TEXT NOT NULL,
+                -- Server-captured info (automatic)
+                ip_address TEXT,
+                user_agent TEXT,
+                accept_language TEXT,
+                -- Client-provided info (sent during sign-in)
+                device_type TEXT,
+                screen_width INTEGER,
+                screen_height INTEGER,
+                device_pixel_ratio REAL,
+                timezone TEXT,
+                timezone_offset INTEGER,
+                platform TEXT,
+                browser TEXT,
+                browser_version TEXT,
+                -- Timestamps
+                created_at TEXT NOT NULL,
+                last_active_at TEXT,
+                FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+            )
+        ";
+
+        $this->database->query($sql);
+        $this->logger->info('Created user_sessions table');
     }
 
     private function createProjectsTable(): void
@@ -146,6 +182,48 @@ class Migration
     }
 
     /**
+     * Add user_sessions table for existing databases
+     * This migration adds support for multiple concurrent sessions per user
+     */
+    public function addUserSessionsMigration(): void
+    {
+        $this->logger->info('Adding user_sessions table for multi-session support');
+
+        try {
+            // Check if table already exists
+            if ($this->tableExists('user_sessions')) {
+                $this->logger->info('user_sessions table already exists, skipping migration');
+                return;
+            }
+
+            $this->database->beginTransaction();
+
+            // Create the user_sessions table
+            $this->createUserSessionsTable();
+
+            // Create indexes for user_sessions
+            $indexes = [
+                "CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions (user_id)",
+                "CREATE INDEX IF NOT EXISTS idx_user_sessions_token ON user_sessions (token)",
+            ];
+
+            foreach ($indexes as $sql) {
+                $this->database->query($sql);
+            }
+
+            $this->database->commit();
+            $this->logger->info('user_sessions table created successfully');
+        } catch (\Exception $e) {
+            $this->database->rollback();
+            $this->logger->error('Failed to create user_sessions table', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
      * Update tasks table columns without transaction management
      * Called from createTables() which already manages transactions
      */
@@ -202,6 +280,8 @@ class Migration
             "CREATE INDEX IF NOT EXISTS idx_users_auth_token ON users (auth_token)",
             "CREATE INDEX IF NOT EXISTS idx_users_email_confirmation_token ON users (email_confirmation_token)",
             "CREATE INDEX IF NOT EXISTS idx_users_password_reset_token ON users (password_reset_token)",
+            "CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions (user_id)",
+            "CREATE INDEX IF NOT EXISTS idx_user_sessions_token ON user_sessions (token)",
             "CREATE INDEX IF NOT EXISTS idx_projects_user_id ON projects (user_id)",
             "CREATE INDEX IF NOT EXISTS idx_tasks_user_id ON tasks (user_id)",
             "CREATE INDEX IF NOT EXISTS idx_tasks_date ON tasks (date)",
@@ -237,6 +317,7 @@ class Migration
 
             $this->database->query("DROP TABLE IF EXISTS tasks");
             $this->database->query("DROP TABLE IF EXISTS projects");
+            $this->database->query("DROP TABLE IF EXISTS user_sessions");
             $this->database->query("DROP TABLE IF EXISTS users");
 
             $this->database->commit();

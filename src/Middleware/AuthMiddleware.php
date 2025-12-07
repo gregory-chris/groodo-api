@@ -110,7 +110,7 @@ class AuthMiddleware implements MiddlewareInterface
 
         $userId = $validation['user_id'];
         
-        // Verify user exists and token matches database
+        // Verify user exists
         $user = $this->userModel->findById($userId);
         
         if ($user === null) {
@@ -118,49 +118,56 @@ class AuthMiddleware implements MiddlewareInterface
             return $this->responseHelper->error('User not found', 403);
         }
 
-        // Check if user's auth token matches (optional additional security)
-        if ($user['auth_token'] !== null && $user['auth_token'] !== $token) {
-            $this->logger->warning('Token mismatch in database', ['user_id' => $userId]);
-            return $this->responseHelper->error('Token invalid', 403);
+        // Validate session exists in user_sessions table (multi-session support)
+        $session = $this->userModel->findSessionByToken($token);
+        
+        if ($session === null) {
+            $this->logger->warning('Session not found in database', ['user_id' => $userId]);
+            return $this->responseHelper->error('Session invalid or expired', 403);
         }
 
-        // Check if database token is expired
-        if ($user['auth_expires_at'] !== null && $this->userModel->isTokenExpired($user['auth_expires_at'])) {
-            $this->logger->warning('Database token expired', [
+        // Check if session is expired
+        if ($this->userModel->isSessionExpired($session['expires_at'])) {
+            $this->logger->warning('Session expired', [
                 'user_id' => $userId,
-                'expires_at' => $user['auth_expires_at']
+                'session_id' => $session['id'],
+                'expires_at' => $session['expires_at']
             ]);
-            return $this->responseHelper->error('Token expired', 403);
+            // Clean up the expired session
+            $this->userModel->deleteSession((int)$session['id']);
+            return $this->responseHelper->error('Session expired', 403);
         }
 
-        // Check if token is expiring soon and extend its validity to 7 days (604800 seconds) from now, without generating a new token
+        // Check if token is expiring soon and extend its validity to 7 days from now
         if ($this->jwtService->isTokenExpiringSoon($validation['expires_at'])) {
-            $this->logger->info('Token expiring soon, extending', ['user_id' => $userId]);
+            $this->logger->info('Token expiring soon, extending session', ['user_id' => $userId]);
 
             $newExpiresAt = time() + 7 * 24 * 3600; // 7 days from now in seconds (UTC)
             $isoNewExpiresAt = gmdate('c', $newExpiresAt);
 
-            // Update only the expiration in the database, keep the token the same
-            $this->userModel->updateAuthToken(
-                $userId,
-                $token,
-                $isoNewExpiresAt
-            );
+            // Update the session expiration
+            $this->userModel->updateSessionExpiration($token, $isoNewExpiresAt);
 
-            $this->logger->info('Token expiration extended successfully', [
+            $this->logger->info('Session expiration extended successfully', [
                 'user_id' => $userId,
+                'session_id' => $session['id'],
                 'new_expires_at' => $isoNewExpiresAt
             ]);
+        } else {
+            // Update last_active_at timestamp
+            $this->userModel->updateSessionActivity((int)$session['id']);
         }
 
         // Add user data to request attributes
         $request = $request->withAttribute('user_id', $userId);
         $request = $request->withAttribute('user', $user);
         $request = $request->withAttribute('auth_token', $token);
+        $request = $request->withAttribute('session_id', (int)$session['id']);
 
         $this->logger->debug('Authentication successful', [
             'user_id' => $userId,
-            'email' => $user['email']
+            'email' => $user['email'],
+            'session_id' => $session['id']
         ]);
 
         return $handler->handle($request);

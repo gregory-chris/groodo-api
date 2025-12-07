@@ -53,12 +53,20 @@ try {
             echo "Tasks table updated successfully!\n";
             break;
             
+        case 'add-sessions':
+            echo "Adding user_sessions table for multi-session support...\n";
+            $migration->addUserSessionsMigration();
+            echo "user_sessions table created successfully!\n";
+            echo "\nNote: Existing users will need to sign in again to create sessions.\n";
+            break;
+            
         default:
-            echo "Usage: php migrate.php [create|drop|reset|update-date-null]\n";
+            echo "Usage: php migrate.php [create|drop|reset|update-date-null|add-sessions]\n";
             echo "  create          - Create database tables (default)\n";
             echo "  drop            - Drop all tables\n";
             echo "  reset           - Drop and recreate all tables\n";
             echo "  update-date-null - Update tasks table to allow NULL dates\n";
+            echo "  add-sessions    - Add user_sessions table for multi-session support\n";
             exit(1);
     }
     

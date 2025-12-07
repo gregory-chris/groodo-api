@@ -15,6 +15,8 @@ use Psr\Log\LoggerInterface;
 
 class UserController
 {
+    private const MAX_SESSIONS_PER_USER = 6;
+
     private User $userModel;
     private JwtService $jwtService;
     private PasswordService $passwordService;
@@ -39,6 +41,96 @@ class UserController
         $this->emailService = $emailService;
         $this->responseHelper = $responseHelper;
         $this->logger = $logger;
+    }
+
+    /**
+     * Extract client/session information from the request
+     * Combines server-side captured info with optional client-provided deviceInfo
+     */
+    private function extractSessionData(Request $request, ?array $deviceInfo = null): array
+    {
+        $serverParams = $request->getServerParams();
+        
+        // Get IP address (check for proxy headers first)
+        $ipAddress = $this->getClientIpAddress($request);
+        
+        // Get User-Agent
+        $userAgent = $request->getHeaderLine('User-Agent') ?: null;
+        
+        // Get Accept-Language
+        $acceptLanguage = $request->getHeaderLine('Accept-Language') ?: null;
+        
+        // Build session data array
+        $sessionData = [
+            'ip_address' => $ipAddress,
+            'user_agent' => $userAgent ? substr($userAgent, 0, 512) : null, // Limit length
+            'accept_language' => $acceptLanguage ? substr($acceptLanguage, 0, 128) : null,
+        ];
+        
+        // Add client-provided device info if available
+        if ($deviceInfo !== null && is_array($deviceInfo)) {
+            $sessionData['device_type'] = isset($deviceInfo['deviceType']) 
+                ? $this->validationService->sanitizeInput((string)$deviceInfo['deviceType']) 
+                : null;
+            $sessionData['screen_width'] = isset($deviceInfo['screenWidth']) 
+                ? (int)$deviceInfo['screenWidth'] 
+                : null;
+            $sessionData['screen_height'] = isset($deviceInfo['screenHeight']) 
+                ? (int)$deviceInfo['screenHeight'] 
+                : null;
+            $sessionData['device_pixel_ratio'] = isset($deviceInfo['devicePixelRatio']) 
+                ? (float)$deviceInfo['devicePixelRatio'] 
+                : null;
+            $sessionData['timezone'] = isset($deviceInfo['timezone']) 
+                ? $this->validationService->sanitizeInput((string)$deviceInfo['timezone']) 
+                : null;
+            $sessionData['timezone_offset'] = isset($deviceInfo['timezoneOffset']) 
+                ? (int)$deviceInfo['timezoneOffset'] 
+                : null;
+            $sessionData['platform'] = isset($deviceInfo['platform']) 
+                ? $this->validationService->sanitizeInput((string)$deviceInfo['platform']) 
+                : null;
+            $sessionData['browser'] = isset($deviceInfo['browser']) 
+                ? $this->validationService->sanitizeInput((string)$deviceInfo['browser']) 
+                : null;
+            $sessionData['browser_version'] = isset($deviceInfo['browserVersion']) 
+                ? $this->validationService->sanitizeInput((string)$deviceInfo['browserVersion']) 
+                : null;
+        }
+        
+        return $sessionData;
+    }
+
+    /**
+     * Get the client's IP address, checking proxy headers
+     */
+    private function getClientIpAddress(Request $request): ?string
+    {
+        // Check X-Forwarded-For header (may contain multiple IPs)
+        $forwardedFor = $request->getHeaderLine('X-Forwarded-For');
+        if (!empty($forwardedFor)) {
+            // Take the first IP in the list (original client)
+            $ips = explode(',', $forwardedFor);
+            $ip = trim($ips[0]);
+            if (filter_var($ip, FILTER_VALIDATE_IP)) {
+                return $ip;
+            }
+        }
+        
+        // Check X-Real-IP header
+        $realIp = $request->getHeaderLine('X-Real-IP');
+        if (!empty($realIp) && filter_var($realIp, FILTER_VALIDATE_IP)) {
+            return $realIp;
+        }
+        
+        // Fall back to REMOTE_ADDR
+        $serverParams = $request->getServerParams();
+        $remoteAddr = $serverParams['REMOTE_ADDR'] ?? null;
+        if ($remoteAddr !== null && filter_var($remoteAddr, FILTER_VALIDATE_IP)) {
+            return $remoteAddr;
+        }
+        
+        return null;
     }
 
     public function signUp(Request $request, Response $response): Response
@@ -214,19 +306,57 @@ class UserController
                 return $this->responseHelper->internalError('Sign-in failed. Please try again later.');
             }
 
-            // Update user's auth token in database
+            // Create new session with multi-session support
             try {
-                $this->userModel->updateAuthToken(
+                // Check current session count and enforce limit
+                $sessionCount = $this->userModel->getSessionCount($user['id']);
+                
+                if ($sessionCount >= self::MAX_SESSIONS_PER_USER) {
+                    // Delete the oldest session to make room for the new one
+                    $deleted = $this->userModel->deleteOldestSession($user['id']);
+                    
+                    if (!$deleted) {
+                        // Deletion failed - log warning but try to create session anyway
+                        // This could happen due to race conditions where another request already deleted it
+                        $this->logger->warning('Failed to delete oldest session, attempting to create anyway', [
+                            'user_id' => $user['id'],
+                            'session_count' => $sessionCount
+                        ]);
+                    } else {
+                        $this->logger->info('Deleted oldest session due to limit', [
+                            'user_id' => $user['id'],
+                            'previous_count' => $sessionCount,
+                            'max_allowed' => self::MAX_SESSIONS_PER_USER
+                        ]);
+                    }
+                }
+                
+                // Extract session data from request
+                $deviceInfo = $data['deviceInfo'] ?? null;
+                $sessionData = $this->extractSessionData($request, $deviceInfo);
+                
+                // Create the new session
+                $sessionId = $this->userModel->createSession(
                     $user['id'],
                     $tokenData['token'],
-                    $tokenData['expires_at']
+                    $tokenData['expires_at'],
+                    $sessionData
                 );
-            } catch (\Exception $updateError) {
-                $this->logger->error('Error updating auth token', [
+                
+                $this->logger->debug('Session created', [
+                    'session_id' => $sessionId,
                     'user_id' => $user['id'],
-                    'error' => $updateError->getMessage()
+                    'ip_address' => $sessionData['ip_address'] ?? 'unknown',
+                    'device_type' => $sessionData['device_type'] ?? 'unknown'
                 ]);
-                // Continue anyway - token was generated successfully
+            } catch (\Exception $sessionError) {
+                // Session creation failed - this is a critical error
+                // Without a session, the token will be rejected by AuthMiddleware
+                $this->logger->error('Error creating session - sign-in failed', [
+                    'user_id' => $user['id'],
+                    'error' => $sessionError->getMessage()
+                ]);
+                return $this->responseHelper->internalError('Sign-in failed. Please try again later.');
             }
 
             $this->logger->info('User signed in successfully', [
@@ -264,9 +394,22 @@ class UserController
 
         try {
             $userId = $request->getAttribute('user_id');
+            $authToken = $request->getAttribute('auth_token');
 
-            // Clear auth token from database
-            $this->userModel->clearAuthToken($userId);
+            // Delete only the current session (not all sessions)
+            if ($authToken) {
+                $deleted = $this->userModel->deleteSessionByToken($authToken);
+                
+                if ($deleted) {
+                    $this->logger->info('User session deleted successfully', [
+                        'user_id' => $userId
+                    ]);
+                } else {
+                    $this->logger->warning('Session not found for deletion', [
+                        'user_id' => $userId
+                    ]);
+                }
+            }
 
             $this->logger->info('User signed out successfully', [
                 'user_id' => $userId
@@ -282,6 +425,38 @@ class UserController
                 'trace' => $e->getTraceAsString()
             ]);
             return $this->responseHelper->internalError('Sign-out failed');
+        }
+    }
+
+    /**
+     * Sign out from all devices (delete all sessions for the user)
+     */
+    public function signOutAll(Request $request, Response $response): Response
+    {
+        $this->logger->info('User sign-out-all attempt started');
+
+        try {
+            $userId = $request->getAttribute('user_id');
+
+            // Delete all sessions for this user
+            $deletedCount = $this->userModel->deleteAllUserSessions($userId);
+
+            $this->logger->info('User signed out from all devices', [
+                'user_id' => $userId,
+                'sessions_deleted' => $deletedCount
+            ]);
+
+            return $this->responseHelper->success([
+                'message' => 'Signed out from all devices successfully',
+                'sessionsDeleted' => $deletedCount
+            ]);
+
+        } catch (\Exception $e) {
+            $this->logger->error('User sign-out-all failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return $this->responseHelper->internalError('Sign-out from all devices failed');
         }
     }
 

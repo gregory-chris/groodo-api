@@ -41,6 +41,8 @@ $app->group('/api', function (RouteCollectorProxy $group) {
                   //->add(SecurityMiddleware::class);
         $userGroup->post('/signout', [UserController::class, 'signOut'])
                   ->add(AuthMiddleware::class);
+        $userGroup->post('/signout-all', [UserController::class, 'signOutAll'])
+                  ->add(AuthMiddleware::class);
         $userGroup->get('/confirm-email', [UserController::class, 'confirmEmail']);
         $userGroup->post('/reset-password', [UserController::class, 'resetPassword'])
                   ->add(SecurityMiddleware::class);
