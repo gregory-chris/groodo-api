@@ -45,6 +45,9 @@ class Migration
                 $this->createTasksTable();
             }
             
+            // Create documents table
+            $this->createDocumentsTable();
+            
             // Create indexes (will check for column existence)
             $this->createIndexes();
 
@@ -160,6 +163,26 @@ class Migration
 
         $this->database->query($sql);
         $this->logger->info('Created tasks table');
+    }
+
+    private function createDocumentsTable(): void
+    {
+        $sql = "
+            CREATE TABLE IF NOT EXISTS documents (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                parent_id INTEGER,
+                title TEXT NOT NULL,
+                content TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+                FOREIGN KEY (parent_id) REFERENCES documents (id) ON DELETE RESTRICT
+            )
+        ";
+
+        $this->database->query($sql);
+        $this->logger->info('Created documents table');
     }
 
     public function updateTasksTableForProjects(): void
@@ -301,6 +324,13 @@ class Migration
             $indexes[] = "CREATE INDEX IF NOT EXISTS idx_tasks_parent_id ON tasks (parent_id)";
         }
 
+        // Documents table indexes
+        if ($this->tableExists('documents')) {
+            $indexes[] = "CREATE INDEX IF NOT EXISTS idx_documents_user_id ON documents (user_id)";
+            $indexes[] = "CREATE INDEX IF NOT EXISTS idx_documents_parent_id ON documents (parent_id)";
+            $indexes[] = "CREATE INDEX IF NOT EXISTS idx_documents_user_parent ON documents (user_id, parent_id)";
+        }
+
         foreach ($indexes as $sql) {
             $this->database->query($sql);
         }
@@ -315,6 +345,7 @@ class Migration
         try {
             $this->database->beginTransaction();
 
+            $this->database->query("DROP TABLE IF EXISTS documents");
             $this->database->query("DROP TABLE IF EXISTS tasks");
             $this->database->query("DROP TABLE IF EXISTS projects");
             $this->database->query("DROP TABLE IF EXISTS user_sessions");
@@ -508,6 +539,49 @@ class Migration
         } catch (\Exception $e) {
             $this->database->rollback();
             $this->logger->error('Failed to update tasks table for NULL dates', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Add documents table for existing databases
+     * This migration adds document management support
+     */
+    public function addDocumentsMigration(): void
+    {
+        $this->logger->info('Adding documents table for document management');
+
+        try {
+            // Check if table already exists
+            if ($this->tableExists('documents')) {
+                $this->logger->info('documents table already exists, skipping migration');
+                return;
+            }
+
+            $this->database->beginTransaction();
+
+            // Create the documents table
+            $this->createDocumentsTable();
+
+            // Create indexes for documents
+            $indexes = [
+                "CREATE INDEX IF NOT EXISTS idx_documents_user_id ON documents (user_id)",
+                "CREATE INDEX IF NOT EXISTS idx_documents_parent_id ON documents (parent_id)",
+                "CREATE INDEX IF NOT EXISTS idx_documents_user_parent ON documents (user_id, parent_id)",
+            ];
+
+            foreach ($indexes as $sql) {
+                $this->database->query($sql);
+            }
+
+            $this->database->commit();
+            $this->logger->info('documents table created successfully');
+        } catch (\Exception $e) {
+            $this->database->rollback();
+            $this->logger->error('Failed to create documents table', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);

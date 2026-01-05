@@ -700,4 +700,169 @@ class ValidationService
     {
         return $this->maxTaskNestingDepth;
     }
+
+    // ========================================
+    // Document Validation Methods
+    // ========================================
+
+    private int $maxDocumentNestingDepth = 5;
+
+    public function validateDocumentTitle(string $title): array
+    {
+        $this->logger->debug('Validating document title');
+
+        $errors = [];
+
+        if (empty($title)) {
+            $errors[] = 'Document title is required';
+        } else {
+            if (strlen($title) > 256) {
+                $errors[] = 'Document title is too long (maximum 256 characters)';
+            }
+
+            if (strlen(trim($title)) === 0) {
+                $errors[] = 'Document title cannot be empty or contain only whitespace';
+            }
+        }
+
+        return [
+            'valid' => empty($errors),
+            'errors' => $errors
+        ];
+    }
+
+    public function validateDocumentContent(?string $content): array
+    {
+        $this->logger->debug('Validating document content');
+
+        // No length limit for document content as per requirements
+        // Just return valid - content is optional and unlimited
+        return [
+            'valid' => true,
+            'errors' => []
+        ];
+    }
+
+    public function validateDocumentCreation(array $data): array
+    {
+        $this->logger->debug('Validating document creation data');
+
+        $allErrors = [];
+
+        // Validate title (required)
+        $titleValidation = $this->validateDocumentTitle($data['title'] ?? '');
+        if (!$titleValidation['valid']) {
+            $allErrors = array_merge($allErrors, $titleValidation['errors']);
+        }
+
+        // Validate content (optional, no length limit)
+        $contentValidation = $this->validateDocumentContent($data['content'] ?? null);
+        if (!$contentValidation['valid']) {
+            $allErrors = array_merge($allErrors, $contentValidation['errors']);
+        }
+
+        return [
+            'valid' => empty($allErrors),
+            'errors' => $allErrors
+        ];
+    }
+
+    public function validateDocumentUpdate(array $data): array
+    {
+        $this->logger->debug('Validating document update data');
+
+        $allErrors = [];
+
+        // Validate title if provided
+        if (isset($data['title'])) {
+            $titleValidation = $this->validateDocumentTitle($data['title']);
+            if (!$titleValidation['valid']) {
+                $allErrors = array_merge($allErrors, $titleValidation['errors']);
+            }
+        }
+
+        // Validate content if provided (optional, no length limit)
+        if (isset($data['content'])) {
+            $contentValidation = $this->validateDocumentContent($data['content']);
+            if (!$contentValidation['valid']) {
+                $allErrors = array_merge($allErrors, $contentValidation['errors']);
+            }
+        }
+
+        return [
+            'valid' => empty($allErrors),
+            'errors' => $allErrors
+        ];
+    }
+
+    public function validateParentDocumentId(?int $parentId, int $userId, \App\Models\Document $documentModel, ?int $currentDocumentId = null): array
+    {
+        $this->logger->debug('Validating parent document ID', [
+            'parent_id' => $parentId,
+            'user_id' => $userId,
+            'current_document_id' => $currentDocumentId
+        ]);
+
+        $errors = [];
+
+        if ($parentId === null) {
+            return [
+                'valid' => true,
+                'errors' => []
+            ];
+        }
+
+        // Check self-reference
+        if ($currentDocumentId !== null && $parentId === $currentDocumentId) {
+            $errors[] = 'Document cannot be its own parent';
+            return [
+                'valid' => false,
+                'errors' => $errors
+            ];
+        }
+
+        // Check if parent exists and belongs to user
+        $parentDocument = $documentModel->findByIdAndUserId($parentId, $userId);
+        if ($parentDocument === null) {
+            $errors[] = 'Parent document not found or access denied';
+            return [
+                'valid' => false,
+                'errors' => $errors
+            ];
+        }
+
+        // Validate nesting depth
+        if (!$documentModel->validateNestingDepth($parentId, $userId, $this->maxDocumentNestingDepth)) {
+            $errors[] = "Maximum nesting depth of {$this->maxDocumentNestingDepth} exceeded";
+        }
+
+        return [
+            'valid' => empty($errors),
+            'errors' => $errors
+        ];
+    }
+
+    public function validateDocumentNestingDepth(int $parentId, int $userId, \App\Models\Document $documentModel): array
+    {
+        $this->logger->debug('Validating document nesting depth', [
+            'parent_id' => $parentId,
+            'user_id' => $userId
+        ]);
+
+        $errors = [];
+
+        if (!$documentModel->validateNestingDepth($parentId, $userId, $this->maxDocumentNestingDepth)) {
+            $errors[] = "Maximum nesting depth of {$this->maxDocumentNestingDepth} exceeded";
+        }
+
+        return [
+            'valid' => empty($errors),
+            'errors' => $errors
+        ];
+    }
+
+    public function getMaxDocumentNestingDepth(): int
+    {
+        return $this->maxDocumentNestingDepth;
+    }
 }

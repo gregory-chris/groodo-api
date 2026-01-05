@@ -11,9 +11,11 @@ use App\Utils\ResponseHelper;
 use App\Models\User;
 use App\Models\Task;
 use App\Models\Project;
+use App\Models\Document;
 use App\Controllers\UserController;
 use App\Controllers\TaskController;
 use App\Controllers\ProjectController;
+use App\Controllers\DocumentController;
 use App\Middleware\AuthMiddleware;
 use App\Middleware\SecurityMiddleware;
 use App\Middleware\CorsMiddleware;
@@ -73,6 +75,10 @@ $container->set(Project::class, function (ContainerInterface $c) {
     return new Project($c->get(Database::class), $c->get(LoggerInterface::class));
 });
 
+$container->set(Document::class, function (ContainerInterface $c) {
+    return new Document($c->get(Database::class), $c->get(LoggerInterface::class));
+});
+
 // Controllers
 $container->set(UserController::class, function (ContainerInterface $c) {
     return new UserController(
@@ -100,6 +106,15 @@ $container->set(ProjectController::class, function (ContainerInterface $c) {
     return new ProjectController(
         $c->get(Project::class),
         $c->get(Task::class),
+        $c->get(ValidationService::class),
+        $c->get(ResponseHelper::class),
+        $c->get(LoggerInterface::class)
+    );
+});
+
+$container->set(DocumentController::class, function (ContainerInterface $c) {
+    return new DocumentController(
+        $c->get(Document::class),
         $c->get(ValidationService::class),
         $c->get(ResponseHelper::class),
         $c->get(LoggerInterface::class)

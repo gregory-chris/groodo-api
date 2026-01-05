@@ -4,6 +4,7 @@ declare(strict_types=1);
 use App\Controllers\UserController;
 use App\Controllers\TaskController;
 use App\Controllers\ProjectController;
+use App\Controllers\DocumentController;
 use App\Middleware\AuthMiddleware;
 use App\Middleware\CorsMiddleware;
 use App\Middleware\LoggingMiddleware;
@@ -80,5 +81,18 @@ $app->group('/api', function (RouteCollectorProxy $group) {
         $projectGroup->patch('/{projectId:[0-9]+}', [ProjectController::class, 'updateProject']);
         $projectGroup->delete('/{projectId:[0-9]+}', [ProjectController::class, 'deleteProject']);
         $projectGroup->get('/{projectId:[0-9]+}/tasks', [ProjectController::class, 'getProjectTasks']);
+    })->add(AuthMiddleware::class);
+    
+    // Document routes
+    $group->group('/documents', function (RouteCollectorProxy $documentGroup) {
+        $documentGroup->get('', [DocumentController::class, 'getDocuments']);
+        $documentGroup->post('', [DocumentController::class, 'createDocument']);
+    })->add(AuthMiddleware::class);
+    
+    $group->group('/document', function (RouteCollectorProxy $documentGroup) {
+        $documentGroup->get('/{documentId:[0-9]+}', [DocumentController::class, 'getDocument']);
+        $documentGroup->put('/{documentId:[0-9]+}', [DocumentController::class, 'updateDocument']);
+        $documentGroup->patch('/{documentId:[0-9]+}', [DocumentController::class, 'updateDocument']);
+        $documentGroup->delete('/{documentId:[0-9]+}', [DocumentController::class, 'deleteDocument']);
     })->add(AuthMiddleware::class);
 });
