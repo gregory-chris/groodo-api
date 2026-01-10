@@ -50,38 +50,18 @@ class DocumentController
             $limit = $paginationValidation['limit'];
             $offset = $paginationValidation['offset'];
 
-            // Check for parentId filter
-            $parentId = null;
-            if (isset($queryParams['parentId'])) {
-                if ($queryParams['parentId'] === 'null' || $queryParams['parentId'] === '') {
-                    // Explicitly requesting root documents
-                    $parentId = null;
-                } elseif (!$this->validationService->isValidId($queryParams['parentId'])) {
-                    return $this->responseHelper->error('Invalid parent document ID', 400);
-                } else {
-                    $parentId = (int)$queryParams['parentId'];
-                    
-                    // Verify parent belongs to user
-                    $parentDocument = $this->documentModel->findByIdAndUserId($parentId, $userId);
-                    if ($parentDocument === null) {
-                        return $this->responseHelper->error('Parent document not found', 400);
-                    }
-                }
-            }
+            // Get all documents for the user
+            $documents = $this->documentModel->findAllByUserId($userId, $limit, $offset);
 
-            // Get documents
-            $documents = $this->documentModel->findByUserId($userId, $parentId, $limit, $offset);
-
-            // Format documents for response
+            // Format documents for response (without content/body)
             $formattedDocuments = array_map(
-                fn($document) => $this->documentModel->formatDocumentForResponse($document),
+                fn($document) => $this->documentModel->formatDocumentListItem($document),
                 $documents
             );
 
             $this->logger->info('Documents retrieved successfully', [
                 'user_id' => $userId,
-                'count' => count($formattedDocuments),
-                'parent_id' => $parentId
+                'count' => count($formattedDocuments)
             ]);
 
             return $this->responseHelper->success($formattedDocuments);
@@ -403,4 +383,5 @@ class DocumentController
         return false;
     }
 }
+
 

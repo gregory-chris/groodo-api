@@ -43,6 +43,42 @@ class Document extends BaseModel
         return $result ?: null;
     }
 
+    /**
+     * Find all documents for a user (regardless of parent)
+     */
+    public function findAllByUserId(int $userId, int $limit = 1000, int $offset = 0): array
+    {
+        $this->logger->debug("Finding all documents by user ID", [
+            'user_id' => $userId,
+            'limit' => $limit,
+            'offset' => $offset
+        ]);
+
+        $sql = "SELECT * FROM {$this->table} WHERE user_id = ? ORDER BY created_at DESC";
+        $params = [$userId];
+
+        if ($limit > 0) {
+            $sql .= " LIMIT {$limit}";
+            if ($offset > 0) {
+                $sql .= " OFFSET {$offset}";
+            }
+        }
+
+        $stmt = $this->database->query($sql, $params);
+        $results = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+        $this->logger->debug("FindAllByUserId operation completed", [
+            'user_id' => $userId,
+            'result_count' => count($results)
+        ]);
+
+        return $results;
+    }
+
+    /**
+     * Find documents by user ID with optional parent filter
+     * When parentId is null, returns root documents (no parent)
+     */
     public function findByUserId(int $userId, ?int $parentId = null, int $limit = 1000, int $offset = 0): array
     {
         $this->logger->debug("Finding documents by user ID", [
@@ -307,5 +343,21 @@ class Document extends BaseModel
             'updatedAt' => $document['updated_at'],
         ];
     }
+
+    /**
+     * Format document for list response (without content/body)
+     */
+    public function formatDocumentListItem(array $document): array
+    {
+        return [
+            'id' => (int)$document['id'],
+            'userId' => (int)$document['user_id'],
+            'parentId' => isset($document['parent_id']) && $document['parent_id'] !== null ? (int)$document['parent_id'] : null,
+            'title' => $document['title'],
+            'createdAt' => $document['created_at'],
+            'updatedAt' => $document['updated_at'],
+        ];
+    }
 }
+
 
