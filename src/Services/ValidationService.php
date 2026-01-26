@@ -865,4 +865,96 @@ class ValidationService
     {
         return $this->maxDocumentNestingDepth;
     }
+
+    // ========================================
+    // Media Validation Methods
+    // ========================================
+
+    private const ALLOWED_IMAGE_MIME_TYPES = [
+        'image/jpeg',
+        'image/png',
+        'image/gif',
+        'image/webp'
+    ];
+
+    private const ALLOWED_VIDEO_MIME_TYPES = [
+        'video/mp4',
+        'video/webm',
+        'video/quicktime',
+        'video/x-msvideo'
+    ];
+
+    private int $maxMediaFileSizeBytes = 52428800; // 50MB default
+
+    /**
+     * Validate media file type and size
+     */
+    public function validateMediaFile(?string $mimeType, ?int $fileSize): array
+    {
+        $this->logger->debug('Validating media file', [
+            'mime_type' => $mimeType,
+            'file_size' => $fileSize
+        ]);
+
+        $errors = [];
+        $mediaType = null;
+
+        // Check if file exists
+        if ($mimeType === null || $mimeType === '') {
+            $errors[] = 'File type is required';
+            return [
+                'valid' => false,
+                'errors' => $errors,
+                'media_type' => null
+            ];
+        }
+
+        // Determine media type from MIME type
+        if (in_array($mimeType, self::ALLOWED_IMAGE_MIME_TYPES)) {
+            $mediaType = 'image';
+        } elseif (in_array($mimeType, self::ALLOWED_VIDEO_MIME_TYPES)) {
+            $mediaType = 'video';
+        } else {
+            $allowedTypes = array_merge(self::ALLOWED_IMAGE_MIME_TYPES, self::ALLOWED_VIDEO_MIME_TYPES);
+            $errors[] = 'Invalid file type. Allowed types: ' . implode(', ', $allowedTypes);
+        }
+
+        // Validate file size
+        if ($fileSize === null || $fileSize <= 0) {
+            $errors[] = 'File size is required and must be greater than 0';
+        } elseif ($fileSize > $this->maxMediaFileSizeBytes) {
+            $maxSizeMB = $this->maxMediaFileSizeBytes / 1024 / 1024;
+            $errors[] = "File size exceeds maximum allowed size of {$maxSizeMB}MB";
+        }
+
+        return [
+            'valid' => empty($errors),
+            'errors' => $errors,
+            'media_type' => $mediaType
+        ];
+    }
+
+    /**
+     * Get allowed image MIME types
+     */
+    public function getAllowedImageMimeTypes(): array
+    {
+        return self::ALLOWED_IMAGE_MIME_TYPES;
+    }
+
+    /**
+     * Get allowed video MIME types
+     */
+    public function getAllowedVideoMimeTypes(): array
+    {
+        return self::ALLOWED_VIDEO_MIME_TYPES;
+    }
+
+    /**
+     * Get maximum media file size in bytes
+     */
+    public function getMaxMediaFileSizeBytes(): int
+    {
+        return $this->maxMediaFileSizeBytes;
+    }
 }

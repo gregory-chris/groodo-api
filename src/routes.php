@@ -5,6 +5,7 @@ use App\Controllers\UserController;
 use App\Controllers\TaskController;
 use App\Controllers\ProjectController;
 use App\Controllers\DocumentController;
+use App\Controllers\MediaController;
 use App\Middleware\AuthMiddleware;
 use App\Middleware\CorsMiddleware;
 use App\Middleware\LoggingMiddleware;
@@ -94,5 +95,10 @@ $app->group('/api', function (RouteCollectorProxy $group) {
         $documentGroup->put('/{documentId:[0-9]+}', [DocumentController::class, 'updateDocument']);
         $documentGroup->patch('/{documentId:[0-9]+}', [DocumentController::class, 'updateDocument']);
         $documentGroup->delete('/{documentId:[0-9]+}', [DocumentController::class, 'deleteDocument']);
+    })->add(AuthMiddleware::class);
+    
+    // Media routes
+    $group->group('/media', function (RouteCollectorProxy $mediaGroup) {
+        $mediaGroup->post('/upload', [MediaController::class, 'upload']);
     })->add(AuthMiddleware::class);
 });

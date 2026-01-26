@@ -48,6 +48,9 @@ class Migration
             // Create documents table
             $this->createDocumentsTable();
             
+            // Create media table
+            $this->createMediaTable();
+            
             // Create indexes (will check for column existence)
             $this->createIndexes();
 
@@ -331,6 +334,16 @@ class Migration
             $indexes[] = "CREATE INDEX IF NOT EXISTS idx_documents_user_parent ON documents (user_id, parent_id)";
         }
 
+        // Media table indexes
+        if ($this->tableExists('media')) {
+            $indexes[] = "CREATE INDEX IF NOT EXISTS idx_media_user_id ON media (user_id)";
+            $indexes[] = "CREATE INDEX IF NOT EXISTS idx_media_task_id ON media (task_id)";
+            $indexes[] = "CREATE INDEX IF NOT EXISTS idx_media_project_id ON media (project_id)";
+            $indexes[] = "CREATE INDEX IF NOT EXISTS idx_media_document_id ON media (document_id)";
+            $indexes[] = "CREATE INDEX IF NOT EXISTS idx_media_profile_user_id ON media (profile_user_id)";
+            $indexes[] = "CREATE INDEX IF NOT EXISTS idx_media_media_type ON media (media_type)";
+        }
+
         foreach ($indexes as $sql) {
             $this->database->query($sql);
         }
@@ -345,6 +358,7 @@ class Migration
         try {
             $this->database->beginTransaction();
 
+            $this->database->query("DROP TABLE IF EXISTS media");
             $this->database->query("DROP TABLE IF EXISTS documents");
             $this->database->query("DROP TABLE IF EXISTS tasks");
             $this->database->query("DROP TABLE IF EXISTS projects");
@@ -582,6 +596,88 @@ class Migration
         } catch (\Exception $e) {
             $this->database->rollback();
             $this->logger->error('Failed to create documents table', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Create media table for file uploads
+     */
+    private function createMediaTable(): void
+    {
+        $sql = "
+            CREATE TABLE IF NOT EXISTS media (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                task_id INTEGER,
+                project_id INTEGER,
+                document_id INTEGER,
+                profile_user_id INTEGER,
+                original_filename TEXT NOT NULL,
+                stored_filename TEXT NOT NULL,
+                file_path TEXT NOT NULL,
+                preview_path TEXT,
+                mime_type TEXT NOT NULL,
+                file_size INTEGER NOT NULL,
+                media_type TEXT NOT NULL,
+                width INTEGER,
+                height INTEGER,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+                FOREIGN KEY (task_id) REFERENCES tasks (id) ON DELETE CASCADE,
+                FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE,
+                FOREIGN KEY (document_id) REFERENCES documents (id) ON DELETE CASCADE,
+                FOREIGN KEY (profile_user_id) REFERENCES users (id) ON DELETE CASCADE
+            )
+        ";
+
+        $this->database->query($sql);
+        $this->logger->info('Created media table');
+    }
+
+    /**
+     * Add media table for existing databases
+     * This migration adds support for media/file uploads
+     */
+    public function addMediaMigration(): void
+    {
+        $this->logger->info('Adding media table for file upload support');
+
+        try {
+            // Check if table already exists
+            if ($this->tableExists('media')) {
+                $this->logger->info('media table already exists, skipping migration');
+                return;
+            }
+
+            $this->database->beginTransaction();
+
+            // Create the media table
+            $this->createMediaTable();
+
+            // Create indexes for media
+            $indexes = [
+                "CREATE INDEX IF NOT EXISTS idx_media_user_id ON media (user_id)",
+                "CREATE INDEX IF NOT EXISTS idx_media_task_id ON media (task_id)",
+                "CREATE INDEX IF NOT EXISTS idx_media_project_id ON media (project_id)",
+                "CREATE INDEX IF NOT EXISTS idx_media_document_id ON media (document_id)",
+                "CREATE INDEX IF NOT EXISTS idx_media_profile_user_id ON media (profile_user_id)",
+                "CREATE INDEX IF NOT EXISTS idx_media_media_type ON media (media_type)",
+            ];
+
+            foreach ($indexes as $sql) {
+                $this->database->query($sql);
+            }
+
+            $this->database->commit();
+            $this->logger->info('media table created successfully');
+        } catch (\Exception $e) {
+            $this->database->rollback();
+            $this->logger->error('Failed to create media table', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);

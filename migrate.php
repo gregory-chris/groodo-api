@@ -66,14 +66,21 @@ try {
             echo "documents table created successfully!\n";
             break;
             
+        case 'add-media':
+            echo "Adding media table for file upload support...\n";
+            $migration->addMediaMigration();
+            echo "media table created successfully!\n";
+            break;
+            
         default:
-            echo "Usage: php migrate.php [create|drop|reset|update-date-null|add-sessions|add-documents]\n";
+            echo "Usage: php migrate.php [create|drop|reset|update-date-null|add-sessions|add-documents|add-media]\n";
             echo "  create          - Create database tables (default)\n";
             echo "  drop            - Drop all tables\n";
             echo "  reset           - Drop and recreate all tables\n";
             echo "  update-date-null - Update tasks table to allow NULL dates\n";
             echo "  add-sessions    - Add user_sessions table for multi-session support\n";
             echo "  add-documents   - Add documents table for document management\n";
+            echo "  add-media       - Add media table for file upload support\n";
             exit(1);
     }
     

@@ -12,10 +12,12 @@ use App\Models\User;
 use App\Models\Task;
 use App\Models\Project;
 use App\Models\Document;
+use App\Models\Media;
 use App\Controllers\UserController;
 use App\Controllers\TaskController;
 use App\Controllers\ProjectController;
 use App\Controllers\DocumentController;
+use App\Controllers\MediaController;
 use App\Middleware\AuthMiddleware;
 use App\Middleware\SecurityMiddleware;
 use App\Middleware\CorsMiddleware;
@@ -79,6 +81,10 @@ $container->set(Document::class, function (ContainerInterface $c) {
     return new Document($c->get(Database::class), $c->get(LoggerInterface::class));
 });
 
+$container->set(Media::class, function (ContainerInterface $c) {
+    return new Media($c->get(Database::class), $c->get(LoggerInterface::class));
+});
+
 // Controllers
 $container->set(UserController::class, function (ContainerInterface $c) {
     return new UserController(
@@ -115,6 +121,19 @@ $container->set(ProjectController::class, function (ContainerInterface $c) {
 $container->set(DocumentController::class, function (ContainerInterface $c) {
     return new DocumentController(
         $c->get(Document::class),
+        $c->get(ValidationService::class),
+        $c->get(ResponseHelper::class),
+        $c->get(LoggerInterface::class)
+    );
+});
+
+$container->set(MediaController::class, function (ContainerInterface $c) {
+    return new MediaController(
+        $c->get(Media::class),
+        $c->get(Task::class),
+        $c->get(Project::class),
+        $c->get(Document::class),
+        $c->get(User::class),
         $c->get(ValidationService::class),
         $c->get(ResponseHelper::class),
         $c->get(LoggerInterface::class)
