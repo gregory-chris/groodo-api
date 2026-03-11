@@ -100,11 +100,11 @@ function addCorsHeadersToResponse($response, Request $request, array $corsConfig
 // Add body parsing middleware (first)
 $app->addBodyParsingMiddleware();
 
-// Add case-insensitive route middleware
-$app->add(\App\Middleware\CaseInsensitiveRouteMiddleware::class);
-
 // Add routing middleware
 $app->addRoutingMiddleware();
+
+// Add case-insensitive route middleware so it runs before route matching.
+$app->add(\App\Middleware\CaseInsensitiveRouteMiddleware::class);
 
 // Add error middleware and configure custom error handlers (last, so it catches all errors)
 $errorMiddleware = $app->addErrorMiddleware(
