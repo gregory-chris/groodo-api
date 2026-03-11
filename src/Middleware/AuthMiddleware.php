@@ -65,7 +65,7 @@ class AuthMiddleware implements MiddlewareInterface
                 $userId = $validation['user_id'];
                 
                 // Try to get user from database, but don't fail if not found (for testing)
-                $user = $this->userModel->findById($userId);
+                $user = $this->userModel->findAuthContextById($userId);
                 
                 // If user doesn't exist, create a minimal user object for testing
                 if ($user === null) {
@@ -110,8 +110,8 @@ class AuthMiddleware implements MiddlewareInterface
 
         $userId = $validation['user_id'];
         
-        // Verify user exists and token matches database
-        $user = $this->userModel->findById($userId);
+        // Verify user exists and token matches the stored auth context.
+        $user = $this->userModel->findAuthContextById($userId);
         
         if ($user === null) {
             $this->logger->warning('User not found for valid JWT token', ['user_id' => $userId]);

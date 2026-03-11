@@ -167,6 +167,8 @@ abstract class ApiTestCase extends TestCase
             // Protected user routes
             $group->post('/users/signOut', [\App\Controllers\UserController::class, 'signOut'])
                 ->add($container->get('AuthMiddleware'));
+            $group->get('/users/keep-alive', [\App\Controllers\UserController::class, 'keepAlive'])
+                ->add($container->get('AuthMiddleware'));
             $group->get('/users/profile', [\App\Controllers\UserController::class, 'profile'])
                 ->add($container->get('AuthMiddleware'));
 

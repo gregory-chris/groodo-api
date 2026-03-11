@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Utils\Database;
+use PDO;
 use Psr\Log\LoggerInterface;
 
 class User extends BaseModel
@@ -18,6 +19,25 @@ class User extends BaseModel
     public function findById(int $id): ?array
     {
         return $this->find($id);
+    }
+
+    public function findAuthContextById(int $id): ?array
+    {
+        $this->logger->debug('Finding user auth context by ID', ['id' => $id]);
+
+        $stmt = $this->database->query(
+            "SELECT id, email, auth_token, auth_expires_at FROM {$this->table} WHERE id = ?",
+            [$id]
+        );
+
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        $this->logger->debug('User auth context lookup completed', [
+            'id' => $id,
+            'found' => $result !== false
+        ]);
+
+        return $result ?: null;
     }
 
     public function findByEmail(string $email): ?array
