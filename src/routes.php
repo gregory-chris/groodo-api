@@ -48,6 +48,8 @@ $app->group('/api', function (RouteCollectorProxy $group) {
         $userGroup->get('/confirm-email', [UserController::class, 'confirmEmail']);
         $userGroup->post('/reset-password', [UserController::class, 'resetPassword'])
                   ->add(SecurityMiddleware::class);
+        $userGroup->get('/keep-alive', [UserController::class, 'keepAlive'])
+              ->add(AuthMiddleware::class);
         $userGroup->get('/profile', [UserController::class, 'getProfile'])
                   ->add(AuthMiddleware::class);
     });

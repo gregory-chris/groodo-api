@@ -189,6 +189,39 @@ class UserEndpointsTest extends ApiTestCase
         $this->assertStringContainsString('Authorization header missing', $error);
     }
 
+    public function testUserKeepAlive(): void
+    {
+        $userData = $this->createTestUserViaApi([
+            'email' => 'keepalive@example.com',
+            'password' => 'password123'
+        ]);
+
+        $user = $this->database->query(
+            "SELECT id FROM users WHERE email = ?",
+            [$userData['email']]
+        )->fetch();
+
+        $this->database->query(
+            'UPDATE users SET is_email_confirmed = 1, email_confirmation_token = NULL WHERE id = ?',
+            [$user['id']]
+        );
+
+        $token = $this->signInUser($userData['email'], $userData['password']);
+
+        $response = $this->makeAuthenticatedRequest('GET', '/api/users/keep-alive', $token);
+        $data = $this->assertSuccessResponse($response);
+
+        $this->assertTrue($data['alive']);
+    }
+
+    public function testUserKeepAliveWithoutAuthentication(): void
+    {
+        $response = $this->makeRequest('GET', '/api/users/keep-alive');
+        $error = $this->assertErrorResponse($response, 403);
+
+        $this->assertStringContainsString('Authorization header missing', $error);
+    }
+
     public function testUserSignOut(): void
     {
         // Create and confirm user

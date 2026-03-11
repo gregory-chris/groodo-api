@@ -710,4 +710,17 @@ class UserController
             return $this->responseHelper->internalError('Failed to retrieve user profile');
         }
     }
+
+    public function keepAlive(Request $request, Response $response): Response
+    {
+        $userId = (int)$request->getAttribute('user_id');
+
+        $this->logger->debug('Keep-alive authentication check passed', [
+            'user_id' => $userId
+        ]);
+
+        return $this->responseHelper->success([
+            'alive' => true
+        ]);
+    }
 }
