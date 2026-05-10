@@ -148,6 +148,55 @@ class TaskEndpointsTest extends ApiTestCase
         $this->assertEquals('Task 1', $data[0]['title']);
     }
 
+    public function testGetTasksWithInclusiveDateRange(): void
+    {
+        $this->makeAuthenticatedRequest('POST', '/api/tasks', $this->userToken, [
+            'title' => 'May 1 Task',
+            'date' => '2025-05-01'
+        ]);
+
+        $this->makeAuthenticatedRequest('POST', '/api/tasks', $this->userToken, [
+            'title' => 'May 2 Task',
+            'date' => '2025-05-02'
+        ]);
+
+        $this->makeAuthenticatedRequest('POST', '/api/tasks', $this->userToken, [
+            'title' => 'May 3 Task',
+            'date' => '2025-05-03'
+        ]);
+
+        $this->makeAuthenticatedRequest('POST', '/api/tasks', $this->userToken, [
+            'title' => 'May 4 Task',
+            'date' => '2025-05-04'
+        ]);
+
+        $response = $this->makeAuthenticatedRequest(
+            'GET',
+            '/api/tasks?from=2025-05-01&until=2025-05-03',
+            $this->userToken
+        );
+        $data = $this->assertSuccessResponse($response);
+
+        $this->assertCount(3, $data);
+        $this->assertEquals('May 1 Task', $data[0]['title']);
+        $this->assertEquals('May 2 Task', $data[1]['title']);
+        $this->assertEquals('May 3 Task', $data[2]['title']);
+    }
+
+    public function testGetTasksDateFilterRejectsDateTimeValues(): void
+    {
+        $response = $this->makeAuthenticatedRequest(
+            'GET',
+            '/api/tasks?from=2025-05-01T12:00:00Z&until=2025-05-03',
+            $this->userToken
+        );
+        $data = $this->assertJsonResponse($response, 400);
+
+        $this->assertEquals('failure', $data['result']);
+        $this->assertEquals('Validation failed', $data['error']);
+        $this->assertContains('Date must be in ISO 8601 format (YYYY-MM-DD)', $data['validation_errors']);
+    }
+
     public function testGetTasksWithPagination(): void
     {
         // Create multiple tasks
