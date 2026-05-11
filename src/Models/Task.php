@@ -43,12 +43,12 @@ class Task extends BaseModel
         return $result ?: null;
     }
 
-    public function findByUserId(int $userId, ?string $fromDate = null, ?string $untilDate = null, ?int $projectId = null, int $limit = 1000, int $offset = 0): array
+    public function findByUserId(int $userId, ?string $startDate = null, ?string $endDate = null, ?int $projectId = null, int $limit = 1000, int $offset = 0): array
     {
         $this->logger->debug("Finding tasks by user ID", [
             'user_id' => $userId,
-            'from_date' => $fromDate,
-            'until_date' => $untilDate,
+            'start_date' => $startDate,
+            'end_date' => $endDate,
             'project_id' => $projectId,
             'limit' => $limit,
             'offset' => $offset
@@ -57,14 +57,14 @@ class Task extends BaseModel
         $sql = "SELECT * FROM {$this->table} WHERE user_id = ?";
         $params = [$userId];
 
-        if ($fromDate !== null) {
+        if ($startDate !== null) {
             $sql .= " AND date >= ?";
-            $params[] = $fromDate;
+            $params[] = $startDate;
         }
 
-        if ($untilDate !== null) {
+        if ($endDate !== null) {
             $sql .= " AND date <= ?";
-            $params[] = $untilDate;
+            $params[] = $endDate;
         }
 
         if ($projectId !== null) {

@@ -239,15 +239,15 @@ Retrieve tasks for the authenticated user with optional filtering and pagination
 **Authentication**: Required
 
 #### Query Parameters
-- `from` (optional): Start date filter (ISO 8601 format: YYYY-MM-DD)
-- `until` (optional): End date filter (ISO 8601 format: YYYY-MM-DD)
+- `startDate` (optional): Start date filter (ISO 8601 format: YYYY-MM-DD)
+- `endDate` (optional): End date filter (ISO 8601 format: YYYY-MM-DD)
 - `projectId` (optional): Filter tasks by project ID (integer)
 - `limit` (optional): Number of tasks to return (default: 100, max: 100)
 - `offset` (optional): Number of tasks to skip (default: 0)
 
 #### Example Request
 ```
-GET /api/tasks?from=2025-09-28&until=2025-09-30&projectId=5&limit=10&offset=0
+GET /api/tasks?startDate=2025-09-28&endDate=2025-09-30&projectId=5&limit=10&offset=0
 ```
 
 #### Response (200 OK)

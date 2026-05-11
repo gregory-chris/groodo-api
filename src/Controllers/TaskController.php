@@ -55,23 +55,23 @@ class TaskController
             $offset = $paginationValidation['offset'];
 
             // Validate date filters
-            $fromDate = null;
-            $untilDate = null;
+            $startDate = null;
+            $endDate = null;
 
-            if (isset($queryParams['from'])) {
-                $fromValidation = $this->validationService->validateDate($queryParams['from']);
-                if (!$fromValidation['valid']) {
-                    return $this->responseHelper->validationError($fromValidation['errors']);
+            if (isset($queryParams['startDate'])) {
+                $startDateValidation = $this->validationService->validateDate($queryParams['startDate']);
+                if (!$startDateValidation['valid']) {
+                    return $this->responseHelper->validationError($startDateValidation['errors']);
                 }
-                $fromDate = $queryParams['from'];
+                $startDate = $queryParams['startDate'];
             }
 
-            if (isset($queryParams['until'])) {
-                $untilValidation = $this->validationService->validateDate($queryParams['until']);
-                if (!$untilValidation['valid']) {
-                    return $this->responseHelper->validationError($untilValidation['errors']);
+            if (isset($queryParams['endDate'])) {
+                $endDateValidation = $this->validationService->validateDate($queryParams['endDate']);
+                if (!$endDateValidation['valid']) {
+                    return $this->responseHelper->validationError($endDateValidation['errors']);
                 }
-                $untilDate = $queryParams['until'];
+                $endDate = $queryParams['endDate'];
             }
 
             // Validate project filter
@@ -90,7 +90,7 @@ class TaskController
             }
 
             // Get tasks
-            $tasks = $this->taskModel->findByUserId($userId, $fromDate, $untilDate, $projectId, $limit, $offset);
+            $tasks = $this->taskModel->findByUserId($userId, $startDate, $endDate, $projectId, $limit, $offset);
 
             // Format tasks for response
             $formattedTasks = array_map(
@@ -101,8 +101,8 @@ class TaskController
             $this->logger->info('Tasks retrieved successfully', [
                 'user_id' => $userId,
                 'count' => count($formattedTasks),
-                'from_date' => $fromDate,
-                'until_date' => $untilDate
+                'start_date' => $startDate,
+                'end_date' => $endDate
             ]);
 
             return $this->responseHelper->success($formattedTasks);

@@ -3,7 +3,7 @@ depends-on: 02-create-task-1.greq
 
 ====
 
-GET /api/tasks?date=2025-10-15 HTTP/1.1
+GET /api/tasks?startDate=2025-10-15&endDate=2025-10-15 HTTP/1.1
 authorization: Bearer $(environment.GROODO_AUTH_TOKEN)
 
 ====

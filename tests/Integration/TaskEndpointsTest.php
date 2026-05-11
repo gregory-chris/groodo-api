@@ -139,7 +139,7 @@ class TaskEndpointsTest extends ApiTestCase
         // Get tasks for specific date
         $response = $this->makeAuthenticatedRequest(
             'GET', 
-            '/api/tasks?from=2025-09-28&until=2025-09-28', 
+            '/api/tasks?startDate=2025-09-28&endDate=2025-09-28', 
             $this->userToken
         );
         $data = $this->assertSuccessResponse($response);
@@ -172,7 +172,7 @@ class TaskEndpointsTest extends ApiTestCase
 
         $response = $this->makeAuthenticatedRequest(
             'GET',
-            '/api/tasks?from=2025-05-01&until=2025-05-03',
+            '/api/tasks?startDate=2025-05-01&endDate=2025-05-03',
             $this->userToken
         );
         $data = $this->assertSuccessResponse($response);
@@ -187,7 +187,7 @@ class TaskEndpointsTest extends ApiTestCase
     {
         $response = $this->makeAuthenticatedRequest(
             'GET',
-            '/api/tasks?from=2025-05-01T12:00:00Z&until=2025-05-03',
+            '/api/tasks?startDate=2025-05-01T12:00:00Z&endDate=2025-05-03',
             $this->userToken
         );
         $data = $this->assertJsonResponse($response, 400);
